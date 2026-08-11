@@ -7,11 +7,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "#0b0f19",
-        panel: "rgba(23, 30, 43, 0.7)",
-        primary: "#8b5cf6",
-        accent: "#3b82f6",
+        background: "#090c15",
+        panel: "rgba(18, 24, 38, 0.75)",
+        primary: "#f97316",
+        accent: "#f59e0b",
         muted: "#94a3b8",
+        tmcOrange: "#f97316",
+        tmcYellow: "#f59e0b",
       },
       backdropBlur: {
         glass: "16px",

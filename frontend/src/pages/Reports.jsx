@@ -11,7 +11,7 @@ import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const API_BASE = "http://localhost:5000";
-const COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#10b981'];
+const COLORS = ['#f97316', '#f59e0b', '#ef4444', '#10b981', '#38bdf8'];
 
 export function Reports() {
   const [stats, setStats] = useState(null);
@@ -300,8 +300,8 @@ export function Reports() {
               <AreaChart data={trendData}>
                 <defs>
                   <linearGradient id="colorViolations" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.4}/>
+                    <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
@@ -324,7 +324,7 @@ export function Reports() {
                 <Area 
                   type="monotone" 
                   dataKey="violations" 
-                  stroke="#3b82f6" 
+                  stroke="#f97316" 
                   strokeWidth={3}
                   fillOpacity={1} 
                   fill="url(#colorViolations)" 

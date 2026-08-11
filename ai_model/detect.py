@@ -34,9 +34,11 @@ class VehicleDetector:
         # Load YOLO model
         self.model = YOLO(self.model_path)
         
-        # Warmup model
+        # Warmup model & apply GPU half precision
         try:
             self.model.to(self.device)
+            if self.half:
+                self.model.half()
         except Exception as e:
             logging.warning(f"Could not move model to {self.device}: {e}. Defaulting to CPU.")
             self.device = 'cpu'
@@ -64,8 +66,7 @@ class VehicleDetector:
             agnostic_nms=True, 
             verbose=False, 
             imgsz=640,
-            device=self.device,
-            half=self.half if self.device != 'cpu' else False
+            device=self.device
         )
 
         detections = []

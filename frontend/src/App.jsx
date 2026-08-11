@@ -33,7 +33,10 @@ function AppLayout() {
             <Menu className="w-6 h-6 text-muted group-hover:text-white" />
           </button>
           <div className="ml-4 h-6 w-[1px] bg-white/10" />
-          <h2 className="ml-4 font-bold tracking-tight text-white/90">Vehicle Monitor</h2>
+          <h2 className="ml-4 font-bold tracking-tight text-white/90 flex items-center gap-2">
+            <span className="text-primary font-extrabold">TMC Malaybalay</span>
+            <span className="text-muted text-xs uppercase tracking-widest font-semibold hidden md:inline">| Yellow Box Zone AI Monitor</span>
+          </h2>
         </header>
       )}
 

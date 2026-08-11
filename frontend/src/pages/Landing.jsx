@@ -23,28 +23,28 @@ export function Landing() {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-4xl text-center space-y-8 relative z-10"
       >
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 backdrop-blur mb-6">
-          <Camera className="w-4 h-4 text-accent" />
-          <span className="text-xs font-bold uppercase tracking-[0.2em]">YOLOv8 Powered</span>
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-primary/10 border border-primary/20 backdrop-blur mb-6">
+          <Camera className="w-4 h-4 text-primary" />
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-accent">TMC Malaybalay City • AI Operations</span>
         </div>
 
-        <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-tight">
-          Smart <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-primary">Monitoring</span><br />
-          For Safer Roads
+        <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-tight">
+          Traffic <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-accent to-yellow-400">Enforcement</span><br />
+          Powered by AI
         </h1>
 
         <p className="text-xl text-muted max-w-2xl mx-auto leading-relaxed">
-          The AI-Based Yellow Box Zone Monitoring System uses computer vision to detect and record
-          vehicle violations in restricted zones automatically.
+          The AI-Based Yellow Box Zone Monitoring System is built for the Traffic Management Center (TMC)
+          of Malaybalay City to detect, record, and reduce intersection gridlock automatically.
         </p>
 
         <div className="flex flex-col md:flex-row gap-4 justify-center items-center pt-8">
           <button
             onClick={() => navigate('/dashboard')}
-            className="px-10 py-5 bg-accent hover:bg-accent/90 text-white rounded-[2rem] font-bold text-lg transition-all shadow-xl shadow-accent/20 flex items-center gap-3 group"
+            className="px-10 py-5 bg-gradient-to-r from-primary to-accent hover:opacity-95 text-slate-950 rounded-[2rem] font-black text-lg transition-all shadow-xl shadow-primary/25 flex items-center gap-3 group"
           >
-            Launch Dashboard
-            <ArrowRight className="group-hover:translate-x-1 transition-transform" />
+            Launch Command Center
+            <ArrowRight className="group-hover:translate-x-1 transition-transform stroke-[3]" />
           </button>
         </div>
       </motion.div>
@@ -59,7 +59,7 @@ export function Landing() {
             transition={{ delay: 0.1 * i }}
             className="glass p-8 rounded-[2rem] hover:border-white/20 transition-colors group"
           >
-            <div className="w-12 h-12 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mb-6 group-hover:scale-110 transition-transform">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-6 group-hover:scale-110 transition-transform">
               <f.icon className="w-6 h-6" />
             </div>
             <h3 className="text-lg font-bold mb-3">{f.title}</h3>

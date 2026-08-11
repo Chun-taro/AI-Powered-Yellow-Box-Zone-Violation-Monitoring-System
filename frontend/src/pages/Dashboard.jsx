@@ -134,8 +134,10 @@ export function Dashboard() {
     <div className="space-y-4 max-w-[1400px] mx-auto">
       <header className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">System Overview</h2>
-          <p className="text-muted text-xs">Real-time AI monitoring and violation detection</p>
+          <h2 className="text-2xl font-black tracking-tight flex items-center gap-2 text-white">
+            TMC Malaybalay <span className="text-primary font-bold text-lg">• Live Command Center</span>
+          </h2>
+          <p className="text-muted text-xs">AI-Powered Yellow Box Zone Intersection Monitoring & Enforcement</p>
         </div>
         <div className="flex gap-3 items-center">
           <div className="flex items-center gap-2">

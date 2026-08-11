@@ -33,11 +33,13 @@ export function Login() {
         className="w-full max-w-md glass p-8 rounded-[2rem] border border-white/10 relative z-10 shadow-2xl"
       >
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-accent/10 border border-accent/20 rounded-2xl flex items-center justify-center mx-auto mb-4 text-accent">
+          <div className="w-16 h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4 text-primary">
             <Shield className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight">Superadmin Login</h2>
-          <p className="text-sm text-muted mt-2">Access the Yellow Box Monitoring System</p>
+          <h2 className="text-2xl font-black tracking-tight text-white flex items-center justify-center gap-2">
+            TMC <span className="text-primary">Malaybalay</span> Portal
+          </h2>
+          <p className="text-xs text-muted mt-2 uppercase tracking-wider font-semibold">Traffic Management Center • Yellow Box AI Monitor</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
@@ -53,7 +55,7 @@ export function Login() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-accent/50 transition-colors"
+                className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-primary/60 transition-colors"
                 placeholder="Enter username"
                 required
               />
@@ -72,7 +74,7 @@ export function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-accent/50 transition-colors"
+                className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-primary/60 transition-colors"
                 placeholder="Enter password"
                 required
               />
@@ -81,10 +83,10 @@ export function Login() {
 
           <button
             type="submit"
-            className="w-full py-4 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
+            className="w-full py-4 bg-gradient-to-r from-primary to-accent hover:opacity-95 text-slate-950 rounded-xl font-extrabold transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
           >
             <Lock className="w-4 h-4" />
-            Authenticate
+            Authenticate Command Portal
           </button>
         </form>
       </motion.div>

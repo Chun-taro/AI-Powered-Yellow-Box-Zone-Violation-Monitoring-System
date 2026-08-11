@@ -41,12 +41,14 @@ export function Sidebar({ isOpen, onClose }) {
                   onClick={onClose}
                   className="flex items-center gap-3 hover:opacity-80 transition-opacity"
                 >
-                  <div className="w-9 h-9 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/30">
-                    <Camera className="text-white w-5 h-5" />
+                  <div className="w-9 h-9 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-lg shadow-primary/30">
+                    <Camera className="text-black font-bold w-5 h-5" />
                   </div>
                   <div>
-                    <h1 className="font-bold text-base tracking-tight text-white">YellowBox</h1>
-                    <p className="text-[10px] text-muted tracking-widest uppercase font-semibold">AI Monitor v2</p>
+                    <h1 className="font-extrabold text-base tracking-tight text-white flex items-center gap-1.5">
+                      TMC <span className="text-primary">Malaybalay</span>
+                    </h1>
+                    <p className="text-[10px] text-accent tracking-widest uppercase font-semibold">Traffic AI Monitor</p>
                   </div>
                 </NavLink>
                 <button
@@ -66,7 +68,7 @@ export function Sidebar({ isOpen, onClose }) {
                     className={({ isActive }) =>
                       `flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-200 group ${
                         isActive
-                          ? 'bg-accent/15 text-accent border border-accent/20'
+                          ? 'bg-primary/20 text-primary border border-primary/30 shadow-lg shadow-primary/10'
                           : 'text-muted hover:text-white hover:bg-white/5'
                       }`
                     }
@@ -91,8 +93,9 @@ export function Sidebar({ isOpen, onClose }) {
                 <span className="font-semibold text-sm">Logout</span>
               </button>
               
-              <div className="text-[10px] text-center text-muted font-bold tracking-tight uppercase">
-                © 2026 Vehicle Yellow Box Zone Monitoring
+              <div className="text-[10px] text-center text-muted font-medium tracking-tight uppercase space-y-0.5">
+                <div className="font-bold text-white/70">Traffic Management Center</div>
+                <div className="text-accent/80 font-semibold italic text-[9px]">Serving with Honor & Pride</div>
               </div>
             </div>
           </motion.aside>

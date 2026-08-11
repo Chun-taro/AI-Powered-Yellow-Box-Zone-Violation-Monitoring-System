@@ -359,8 +359,8 @@ export function SystemCompatibility() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b border-white/5 pb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-center">
-                        <Flame className="w-5 h-5 text-indigo-400" />
+                      <div className="w-10 h-10 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center">
+                        <Flame className="w-5 h-5 text-primary" />
                       </div>
                       <div>
                         <h3 className="font-bold text-white text-base">Graphics Card (GPU)</h3>
@@ -515,7 +515,7 @@ export function SystemCompatibility() {
               {/* Graphics APIs card */}
               <div className="glass-card border border-white/5 hover:border-white/10 rounded-3xl p-6 space-y-4">
                 <h3 className="font-bold text-white border-b border-white/5 pb-2 text-sm flex items-center gap-2">
-                  <Settings className="w-4 h-4 text-purple-400" />
+                  <Settings className="w-4 h-4 text-accent" />
                   Graphics Libraries
                 </h3>
                 <div className="space-y-2.5 text-xs">
