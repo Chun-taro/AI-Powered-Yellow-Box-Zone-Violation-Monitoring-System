@@ -4,9 +4,29 @@ import { VideoFeed } from '../components/VideoFeed';
 import { ViolationList } from '../components/ViolationList';
 import { AlertTriangle, Camera, X, ExternalLink, Calendar, Activity, CreditCard, Upload, PlayCircle, Film } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import axios from 'axios';
 
 const API_BASE = "http://localhost:5000";
+
+const playAlertSound = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.35);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.35);
+  } catch (e) {
+    // Audio Context requirement fallback
+  }
+};
 
 export function Dashboard() {
   const [violations, setViolations] = useState([]);
@@ -66,10 +86,8 @@ export function Dashboard() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       if (res.data.success) {
-        // Refresh video list
         const tvRes = await axios.get(`${API_BASE}/api/test_videos`);
         setTestVideos(tvRes.data);
-        // Automatically switch to the new video
         handleSourceChange(`camera/${res.data.filename}`);
       }
     } catch (error) {
@@ -91,6 +109,17 @@ export function Dashboard() {
             signal: abortController.signal
           });
           if (res.data.update && isMounted) {
+            playAlertSound();
+            toast.error("🚨 YELLOW BOX STOP-TIME VIOLATION DETECTED!", {
+              duration: 5000,
+              icon: '⚠️',
+              style: {
+                background: '#18181b',
+                color: '#ef4444',
+                border: '1px solid rgba(239,68,68,0.3)',
+                fontWeight: 'bold'
+              }
+            });
             await fetchData();
           }
         } catch (error) {
@@ -312,14 +341,14 @@ export function Dashboard() {
                     </button>
                   </div>
 
-                  <div className="space-y-5 flex-1">
+                  <div className="space-y-4 flex-1">
                     <div className="flex items-center gap-4 group">
                       <div className="p-3 bg-white/5 rounded-2xl group-hover:bg-accent/10 transition-colors">
                         <Calendar className="w-5 h-5 text-accent" />
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-muted uppercase tracking-tight">Timestamp</p>
-                        <p className="text-sm font-medium">
+                        <p className="text-xs font-medium">
                           {new Date(selectedViolation.timestamp || selectedViolation.violation_timestamp).toLocaleString()}
                         </p>
                       </div>
@@ -330,8 +359,10 @@ export function Dashboard() {
                         <Activity className="w-5 h-5 text-primary" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-muted uppercase tracking-tight">Stop Duration</p>
-                        <p className="text-sm font-medium">{selectedViolation.stop_duration}s</p>
+                        <p className="text-[10px] font-bold text-muted uppercase tracking-tight">Stop Duration & Color</p>
+                        <p className="text-xs font-medium">
+                          <span className="text-orange-400 font-bold">{selectedViolation.stop_duration}s</span> • {selectedViolation.vehicle_color || "Standard"}
+                        </p>
                       </div>
                     </div>
 
@@ -341,8 +372,20 @@ export function Dashboard() {
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-muted uppercase tracking-tight">Plate Number</p>
-                        <p className="text-sm font-bold tracking-wider text-white">
-                          {selectedViolation.plate_number || "NOT DETECTED"}
+                        <p className="text-xs font-bold tracking-wider text-emerald-400">
+                          {selectedViolation.plate_number || "UNREAD / NOT DETECTED"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 group">
+                      <div className="p-3 bg-white/5 rounded-2xl group-hover:bg-blue-500/10 transition-colors">
+                        <ExternalLink className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-muted uppercase tracking-tight">Location</p>
+                        <p className="text-[11px] font-medium text-white/80">
+                          {selectedViolation.location || "Sayre Highway - Fortich St., Malaybalay City"}
                         </p>
                       </div>
                     </div>

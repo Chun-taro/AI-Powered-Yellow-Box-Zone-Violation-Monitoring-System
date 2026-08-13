@@ -46,6 +46,26 @@ class Database:
                 except Exception as e:
                     print(f"Note: plate_number migration: {e}")
                     self.conn.rollback()
+
+            # Add location column if it doesn't exist yet
+            if columns and 'location' not in columns:
+                try:
+                    self.conn.execute("ALTER TABLE violations ADD COLUMN location TEXT DEFAULT 'Sayre Highway - Fortich St., Malaybalay City'")
+                    self.conn.commit()
+                    print("✓ Migrated: Added location column to violations table.")
+                except Exception as e:
+                    print(f"Note: location migration: {e}")
+                    self.conn.rollback()
+
+            # Add vehicle_color column if it doesn't exist yet
+            if columns and 'vehicle_color' not in columns:
+                try:
+                    self.conn.execute("ALTER TABLE violations ADD COLUMN vehicle_color TEXT DEFAULT 'Standard'")
+                    self.conn.commit()
+                    print("✓ Migrated: Added vehicle_color column to violations table.")
+                except Exception as e:
+                    print(f"Note: vehicle_color migration: {e}")
+                    self.conn.rollback()
         except Exception:
             pass
 
@@ -84,6 +104,8 @@ class Database:
                 zone_id INTEGER DEFAULT 1,
                 stop_duration REAL,
                 plate_number TEXT DEFAULT NULL,
+                location TEXT DEFAULT 'Sayre Highway - Fortich St., Malaybalay City',
+                vehicle_color TEXT DEFAULT 'Standard',
                 image_path TEXT,
                 image_blob BLOB,
                 confidence REAL DEFAULT 0.0,
@@ -185,18 +207,20 @@ class Database:
 
     def insert_violation(self, vehicle_type, timestamp, image_path, image_blob=None,
                         detection_id=None, stop_duration=None, confidence=0.0,
-                        notes=None, zone_id=1, plate_number=None):
+                        notes=None, zone_id=1, plate_number=None,
+                        location="Sayre Highway - Fortich St., Malaybalay City",
+                        vehicle_color="Standard"):
         vehicle_type_id = self.get_vehicle_type_id(vehicle_type)
         
         query = '''
         INSERT INTO violations 
         (vehicle_type_id, violation_timestamp, image_path, image_blob, 
-         detection_id, stop_duration, confidence, notes, zone_id, plate_number)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         detection_id, stop_duration, confidence, notes, zone_id, plate_number, location, vehicle_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         '''
         self.conn.execute(query, (
             vehicle_type_id, timestamp, image_path, image_blob,
-            detection_id, stop_duration, confidence, notes, zone_id, plate_number
+            detection_id, stop_duration, confidence, notes, zone_id, plate_number, location, vehicle_color
         ))
         self.conn.commit()
 
@@ -204,7 +228,9 @@ class Database:
         """Get all violations ordered by timestamp (newest first)."""
         query = '''
         SELECT v.id, v.violation_timestamp as timestamp, vt.type_name as label, 
-               v.image_path, v.stop_duration, v.confidence, v.status, v.plate_number
+               v.image_path, v.stop_duration, v.confidence, v.status, v.plate_number,
+               COALESCE(v.location, 'Sayre Highway - Fortich St., Malaybalay City') as location,
+               COALESCE(v.vehicle_color, 'Standard') as vehicle_color
         FROM violations v
         LEFT JOIN vehicle_types vt ON v.vehicle_type_id = vt.id
         ORDER BY v.violation_timestamp DESC
@@ -216,7 +242,9 @@ class Database:
         """Get violations within a date range (inclusive). Dates formatted as YYYY-MM-DD."""
         query = '''
         SELECT v.id, v.violation_timestamp as timestamp, vt.type_name as label, 
-               v.image_path, v.stop_duration, v.confidence, v.status, v.plate_number
+               v.image_path, v.stop_duration, v.confidence, v.status, v.plate_number,
+               COALESCE(v.location, 'Sayre Highway - Fortich St., Malaybalay City') as location,
+               COALESCE(v.vehicle_color, 'Standard') as vehicle_color
         FROM violations v
         LEFT JOIN vehicle_types vt ON v.vehicle_type_id = vt.id
         WHERE DATE(v.violation_timestamp) BETWEEN ? AND ?
@@ -229,7 +257,9 @@ class Database:
         """Get violations for a specific date (YYYY-MM-DD)."""
         query = '''
         SELECT v.id, v.violation_timestamp as timestamp, vt.type_name as label,
-               v.image_path, v.stop_duration, v.confidence, v.status, v.plate_number
+               v.image_path, v.stop_duration, v.confidence, v.status, v.plate_number,
+               COALESCE(v.location, 'Sayre Highway - Fortich St., Malaybalay City') as location,
+               COALESCE(v.vehicle_color, 'Standard') as vehicle_color
         FROM violations v
         LEFT JOIN vehicle_types vt ON v.vehicle_type_id = vt.id
         WHERE DATE(v.violation_timestamp) = ?
@@ -246,7 +276,9 @@ class Database:
         
         query = '''
         SELECT v.id, v.violation_timestamp as timestamp, vt.type_name as label,
-               v.image_path, v.stop_duration, v.confidence, v.status, v.plate_number
+               v.image_path, v.stop_duration, v.confidence, v.status, v.plate_number,
+               COALESCE(v.location, 'Sayre Highway - Fortich St., Malaybalay City') as location,
+               COALESCE(v.vehicle_color, 'Standard') as vehicle_color
         FROM violations v
         LEFT JOIN vehicle_types vt ON v.vehicle_type_id = vt.id
         WHERE v.vehicle_type_id = ?
@@ -263,7 +295,9 @@ class Database:
         query = '''
         SELECT v.id, v.violation_timestamp as timestamp, vt.type_name as label,
                v.image_path, v.image_blob, v.stop_duration, v.confidence, 
-               v.status, v.notes, v.plate_number
+               v.status, v.notes, v.plate_number,
+               COALESCE(v.location, 'Sayre Highway - Fortich St., Malaybalay City') as location,
+               COALESCE(v.vehicle_color, 'Standard') as vehicle_color
         FROM violations v
         LEFT JOIN vehicle_types vt ON v.vehicle_type_id = vt.id
         WHERE v.id = ?
@@ -287,9 +321,18 @@ class Database:
         cursor = self.conn.execute(query, (date,))
         return cursor.fetchone()
 
-    def count_violations_by_type(self, date=None):
-        """Count violations grouped by vehicle type for a date or all time."""
-        if date:
+    def count_violations_by_type(self, start_date=None, end_date=None):
+        """Count violations grouped by vehicle type for date range or all time."""
+        if start_date and end_date:
+            query = '''
+            SELECT vt.type_name, COUNT(*) as count
+            FROM violations v
+            LEFT JOIN vehicle_types vt ON v.vehicle_type_id = vt.id
+            WHERE DATE(v.violation_timestamp) BETWEEN ? AND ?
+            GROUP BY v.vehicle_type_id
+            '''
+            cursor = self.conn.execute(query, (start_date, end_date))
+        elif start_date:
             query = '''
             SELECT vt.type_name, COUNT(*) as count
             FROM violations v
@@ -297,7 +340,7 @@ class Database:
             WHERE DATE(v.violation_timestamp) = ?
             GROUP BY v.vehicle_type_id
             '''
-            cursor = self.conn.execute(query, (date,))
+            cursor = self.conn.execute(query, (start_date,))
         else:
             query = '''
             SELECT vt.type_name, COUNT(*) as count
@@ -309,16 +352,26 @@ class Database:
         
         return cursor.fetchall()
 
-    def get_daily_trend(self, limit=7):
-        """Get violation counts for the last N days."""
-        query = '''
-        SELECT DATE(violation_timestamp) as date, COUNT(*) as count
-        FROM violations
-        GROUP BY DATE(violation_timestamp)
-        ORDER BY date DESC
-        LIMIT ?
-        '''
-        cursor = self.conn.execute(query, (limit,))
+    def get_daily_trend(self, limit=7, start_date=None, end_date=None):
+        """Get violation counts for date range or last N days."""
+        if start_date and end_date:
+            query = '''
+            SELECT DATE(violation_timestamp) as date, COUNT(*) as count
+            FROM violations
+            WHERE DATE(violation_timestamp) BETWEEN ? AND ?
+            GROUP BY DATE(violation_timestamp)
+            ORDER BY date DESC
+            '''
+            cursor = self.conn.execute(query, (start_date, end_date))
+        else:
+            query = '''
+            SELECT DATE(violation_timestamp) as date, COUNT(*) as count
+            FROM violations
+            GROUP BY DATE(violation_timestamp)
+            ORDER BY date DESC
+            LIMIT ?
+            '''
+            cursor = self.conn.execute(query, (limit,))
         return cursor.fetchall()
 
     def record_detection(self, tracking_id, vehicle_type, centroid_x, centroid_y,

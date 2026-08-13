@@ -37,8 +37,6 @@ class VehicleDetector:
         # Warmup model & apply GPU half precision
         try:
             self.model.to(self.device)
-            if self.half:
-                self.model.half()
         except Exception as e:
             logging.warning(f"Could not move model to {self.device}: {e}. Defaulting to CPU.")
             self.device = 'cpu'
@@ -66,7 +64,8 @@ class VehicleDetector:
             agnostic_nms=True, 
             verbose=False, 
             imgsz=640,
-            device=self.device
+            device=self.device,
+            half=self.half
         )
 
         detections = []

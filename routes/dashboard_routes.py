@@ -104,12 +104,20 @@ def api_realtime_stats():
 
 @dashboard_bp.route('/api/stats')
 def api_stats():
-    """Analytics and Reports Data"""
-    # Get stats for charts
-    by_type = db.count_violations_by_type()
+    """Analytics and Reports Data with optional start and end date range filtering."""
+    start_date = request.args.get('start')
+    end_date = request.args.get('end')
+
+    # Get stats for charts (filtering by custom date range if provided)
+    if start_date and end_date:
+        by_type = db.count_violations_by_type(start_date=start_date, end_date=end_date)
+        daily_trend = db.get_daily_trend(start_date=start_date, end_date=end_date)
+    else:
+        by_type = db.count_violations_by_type()
+        daily_trend = db.get_daily_trend(7)
+
     by_type_data = { (row[0] if row[0] is not None else "Unknown"): row[1] for row in by_type }
     
-    daily_trend = db.get_daily_trend(7)
     trend_data = []
     for row in reversed(daily_trend):
         trend_data.append({

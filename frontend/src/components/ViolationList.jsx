@@ -38,13 +38,13 @@ export function ViolationList({ violations, onViewImage }) {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <p className="text-xs text-muted font-medium">Zone {v.zone_id || 'Alpha'}</p>
+                    <p className="text-[11px] text-muted font-medium truncate max-w-[110px]">{v.vehicle_color || 'Standard'}</p>
                     {v.plate_number ? (
                       <span className="text-[10px] font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20">
                         {v.plate_number}
                       </span>
                     ) : (
-                      <span className="text-[10px] font-medium text-white/20 bg-white/5 px-2 py-0.5 rounded border border-white/10">
+                      <span className="text-[10px] font-medium text-white/30 bg-white/5 px-2 py-0.5 rounded border border-white/10">
                         Unread
                       </span>
                     )}

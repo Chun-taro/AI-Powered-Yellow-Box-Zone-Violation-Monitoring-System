@@ -78,17 +78,19 @@ export function ViolationLogs() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-white/[0.02] border-b border-white/5">
-                <th className="px-8 py-5 text-sm font-bold uppercase tracking-wider text-muted">Evidence</th>
-                <th className="px-8 py-5 text-sm font-bold uppercase tracking-wider text-muted">Vehicle Type</th>
-                <th className="px-8 py-5 text-sm font-bold uppercase tracking-wider text-muted">Plate No.</th>
-                <th className="px-8 py-5 text-sm font-bold uppercase tracking-wider text-muted">Timestamp</th>
-                <th className="px-8 py-5 text-sm font-bold uppercase tracking-wider text-muted text-right">Action</th>
+                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted">Evidence</th>
+                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted">Vehicle Class</th>
+                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted">Color</th>
+                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted">Plate No.</th>
+                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted">Location</th>
+                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted">Timestamp</th>
+                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted text-right">Action</th>
               </tr>
             </thead>
             <tbody>
               {(filtered || []).map((v, i) => (
                 <tr key={v.id || i} className="border-b border-white/5 hover:bg-white/[0.01] transition-colors group">
-                  <td className="px-8 py-4">
+                  <td className="px-6 py-4">
                     <div className="w-16 h-10 rounded-lg bg-black/40 overflow-hidden border border-white/10">
                       <img 
                         src={`${API_BASE}/${v.image_path}`} 
@@ -100,12 +102,15 @@ export function ViolationLogs() {
                       />
                     </div>
                   </td>
-                  <td className="px-8 py-4">
+                  <td className="px-6 py-4">
                     <span className="px-3 py-1 rounded-lg bg-red-400/10 text-red-400 text-xs font-bold border border-red-400/20 uppercase">
                       {v.label}
                     </span>
                   </td>
-                  <td className="px-8 py-4">
+                  <td className="px-6 py-4 text-xs font-medium text-white/80">
+                    {v.vehicle_color || 'Standard'}
+                  </td>
+                  <td className="px-6 py-4">
                     {v.plate_number ? (
                       <span className="text-xs font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded border border-emerald-400/20">
                         {v.plate_number}
@@ -114,13 +119,16 @@ export function ViolationLogs() {
                       <span className="text-xs text-white/20">—</span>
                     )}
                   </td>
-                  <td className="px-8 py-4">
+                  <td className="px-6 py-4 text-xs text-muted max-w-[180px] truncate">
+                    {v.location || 'Sayre Highway - Fortich St.'}
+                  </td>
+                  <td className="px-6 py-4">
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium">{v.timestamp?.split(' ')[0]}</span>
-                      <span className="text-xs text-muted">{v.timestamp?.split(' ')[1]}</span>
+                      <span className="text-xs font-medium">{v.timestamp?.split(' ')[0]}</span>
+                      <span className="text-[10px] text-muted">{v.timestamp?.split(' ')[1]}</span>
                     </div>
                   </td>
-                  <td className="px-8 py-4 text-right">
+                  <td className="px-6 py-4 text-right">
                     <button 
                       onClick={() => setSelectedViolation(v)}
                       className="p-2.5 rounded-xl bg-white/5 hover:bg-accent hover:text-white transition-all text-muted"

@@ -45,6 +45,40 @@ export function Reports() {
     fetchData();
   }, []);
 
+  const fetchCustomRangeData = async (start, end) => {
+    try {
+      const [sRes, vRes] = await Promise.all([
+        axios.get(`${API_BASE}/api/stats`, { params: { start, end } }),
+        axios.get(`${API_BASE}/api/violations`, { params: { start, end } })
+      ]);
+      setStats(sRes.data);
+      setViolations(vRes.data);
+    } catch (err) {
+      console.error("Error fetching filtered reports data:", err);
+    }
+  };
+
+  const loadImageAsBase64 = (url) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/jpeg'));
+        } catch (e) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  };
+
   const handleExport = async () => {
     setIsExporting(true);
     try {
@@ -53,8 +87,13 @@ export function Reports() {
       });
       const data = response.data;
       
+      // Update displayed stats and charts for selected range
+      await fetchCustomRangeData(dateRange.start, dateRange.end);
+
       if (pendingExportType === 'PDF') {
-        generatePDF(data);
+        await generatePDF(data);
+      } else if (pendingExportType === 'EXCEL') {
+        await generateExcel(data);
       } else {
         generateCSV(data);
       }
@@ -66,65 +105,247 @@ export function Reports() {
     }
   };
 
-  const generatePDF = (data) => {
-    const doc = new jsPDF();
+  const generatePDF = async (data) => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const timestamp = new Date().toLocaleString();
-    
-    // Header
-    doc.setFontSize(22);
-    doc.setTextColor(59, 130, 246); 
-    doc.text("Yellow Box Zone Monitoring System", 14, 22);
-    
-    doc.setFontSize(12);
-    doc.setTextColor(100);
-    doc.text(`Official Violation Report | Period: ${dateRange.start} to ${dateRange.end}`, 14, 32);
-    doc.text(`Generated: ${timestamp}`, 14, 38);
-    
-    // Summary Section
-    doc.setFontSize(16);
-    doc.setTextColor(0);
-    doc.text("Report Summary", 14, 52);
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Pre-fetch base64 images for evidence thumbnails
+    const imagesMap = {};
+    const maxRows = Math.min(data.length, 35);
+    await Promise.all(data.slice(0, maxRows).map(async (v) => {
+      if (v.image_path) {
+        const b64 = await loadImageAsBase64(`${API_BASE}/${v.image_path}`);
+        if (b64) imagesMap[v.id] = b64;
+      }
+    }));
+
+    // --- OFFICIAL HEADER ---
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(30, 41, 59);
+    doc.text("BUKIDNON STATE UNIVERSITY", pageWidth / 2, 14, { align: "center" });
     
     doc.setFontSize(11);
-    doc.text(`Total Violations in Period: ${data.length}`, 14, 62);
-    doc.text(`Current Top Violation: ${pieData[0]?.name || "N/A"}`, 14, 69);
+    doc.setTextColor(51, 65, 85);
+    doc.text("CITY TRANSPORT & TRAFFIC MANAGEMENT CENTER (TMC) - MALAYBALAY CITY", pageWidth / 2, 20, { align: "center" });
     
-    // Violation List Table
+    doc.setFontSize(12);
+    doc.setTextColor(234, 88, 12);
+    doc.text("AI-POWERED YELLOW BOX ZONE VIOLATION MONITORING & ENFORCEMENT REPORT", pageWidth / 2, 27, { align: "center" });
+
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.5);
+    doc.line(14, 30, pageWidth - 14, 30);
+
+    // --- REPORT METADATA & SUMMARY BOX ---
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(14, 33, pageWidth - 28, 22, 2, 2, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(14, 33, pageWidth - 28, 22, 2, 2, 'D');
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(71, 85, 105);
+    doc.text("Report Reference:", 18, 39);
+    doc.text("Location Monitored:", 18, 45);
+    doc.text("Target Scope:", 18, 51);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(15, 23, 42);
+    doc.text("TMC-BSU-YBZ-032", 50, 39);
+    doc.text("Sayre Highway - Fortich St. Intersection, Malaybalay City", 50, 45);
+    doc.text("All Vehicle Classes (Multicabs, Cars, Buses, Trucks, Motorcycles)", 50, 51);
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(71, 85, 105);
+    doc.text("Reporting Period:", pageWidth / 2 + 10, 39);
+    doc.text("Total Violations:", pageWidth / 2 + 10, 45);
+    doc.text("Date Generated:", pageWidth / 2 + 10, 51);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${dateRange.start} to ${dateRange.end}`, pageWidth / 2 + 45, 39);
+    doc.text(`${data.length} Infraction(s) Recorded`, pageWidth / 2 + 45, 45);
+    doc.text(`${timestamp}`, pageWidth / 2 + 45, 51);
+
+    // --- VIOLATION RECORD TABLE WITH EMBEDDED IMAGES ---
     autoTable(doc, {
-      startY: 85,
-      head: [['ID', 'Vehicle', 'Plate No.', 'Timestamp', 'Stop Duration', 'Confidence', 'Status']],
-      body: data.map(v => [
-        v.id,
-        v.label,
-        v.plate_number || 'N/A',
+      startY: 59,
+      head: [['ID', 'Evidence Photo', 'Timestamp', 'Location', 'Vehicle Class', 'Color', 'Plate No.', 'Stop Duration', 'Status']],
+      body: data.slice(0, maxRows).map(v => [
+        `#${v.id}`,
+        '', // Reserved space for evidence image
         new Date(v.timestamp || v.violation_timestamp).toLocaleString(),
+        v.location || 'Sayre Highway - Fortich St.',
+        (v.label || 'Vehicle').toUpperCase(),
+        v.vehicle_color || 'Standard',
+        v.plate_number || 'UNREAD',
         `${v.stop_duration}s`,
-        v.confidence ? `${(v.confidence * 100).toFixed(1)}%` : '0%',
-        v.status || 'recorded'
+        (v.status || 'recorded').toUpperCase()
       ]),
-      headStyles: { fillColor: [59, 130, 246] },
-      alternateRowStyles: { fillColor: [240, 245, 255] },
-      margin: { top: 85 }
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+      bodyStyles: { fontSize: 8, textColor: [51, 65, 85], minCellHeight: 14, verticalAlign: 'middle' },
+      columnStyles: {
+        1: { cellWidth: 26 } // Photo column width
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      didDrawCell: (cellData) => {
+        if (cellData.section === 'body' && cellData.column.index === 1) {
+          const rowItem = data.slice(0, maxRows)[cellData.row.index];
+          if (rowItem && imagesMap[rowItem.id]) {
+            const dim = cellData.cell;
+            doc.addImage(imagesMap[rowItem.id], 'JPEG', dim.x + 2, dim.y + 1.5, 22, 11);
+          }
+        }
+      },
+      margin: { left: 14, right: 14, top: 59 }
     });
-    
-    doc.save(`Violation_Report_${dateRange.start}_to_${dateRange.end}.pdf`);
+
+    // --- SIGNATORIES SECTION ---
+    let finalY = doc.lastAutoTable.finalY || 130;
+    if (finalY > 155) {
+      doc.addPage();
+      finalY = 25;
+    } else {
+      finalY += 15;
+    }
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 41, 59);
+
+    const colWidth = (pageWidth - 28) / 3;
+
+    // Signatory 1: Prepared By
+    doc.text("Prepared by:", 14, finalY);
+    doc.line(14, finalY + 15, 14 + colWidth - 10, finalY + 15);
+    doc.text("TMC System Operator / AI Officer", 14, finalY + 20);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text("Traffic Management Center", 14, finalY + 24);
+
+    // Signatory 2: Recommending Approval
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("Recommending Approval:", 14 + colWidth, finalY);
+    doc.line(14 + colWidth, finalY + 15, 14 + (colWidth * 2) - 10, finalY + 15);
+    doc.text("TMC Operations Supervisor", 14 + colWidth, finalY + 20);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text("City Traffic Management Division", 14 + colWidth, finalY + 24);
+
+    // Signatory 3: Approved By
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("Approved by:", 14 + (colWidth * 2), finalY);
+    doc.line(14 + (colWidth * 2), finalY + 15, pageWidth - 14, finalY + 15);
+    doc.text("Head, TMC Malaybalay City", 14 + (colWidth * 2), finalY + 20);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text("City Transport & Traffic Office", 14 + (colWidth * 2), finalY + 24);
+
+    doc.save(`TMC_YellowBox_Violation_Report_${dateRange.start}_to_${dateRange.end}.pdf`);
+  };
+
+  const generateExcel = async (data) => {
+    const maxRows = Math.min(data.length, 50);
+    const imagesMap = {};
+    await Promise.all(data.slice(0, maxRows).map(async (v) => {
+      if (v.image_path) {
+        const b64 = await loadImageAsBase64(`${API_BASE}/${v.image_path}`);
+        if (b64) imagesMap[v.id] = b64;
+      }
+    }));
+
+    let html = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Violations Log</x:Name>
+                <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+          th { background-color: #1e293b; color: white; border: 1px solid #64748b; padding: 10px; font-size: 12px; }
+          td { border: 1px solid #cbd5e1; padding: 8px; text-align: center; vertical-align: middle; font-size: 11px; }
+          img { width: 90px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #000; }
+        </style>
+      </head>
+      <body>
+        <h2>BUKIDNON STATE UNIVERSITY & TMC MALAYBALAY CITY</h2>
+        <h3>Yellow Box Zone Violation Enforcement Spreadsheet (${dateRange.start} to ${dateRange.end})</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Evidence Snapshot</th>
+              <th>Timestamp</th>
+              <th>Location</th>
+              <th>Vehicle Class</th>
+              <th>Vehicle Color</th>
+              <th>Plate Number</th>
+              <th>Stop Duration</th>
+              <th>Status</th>
+              <th>Direct Image Link</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    data.slice(0, maxRows).forEach(v => {
+      const imgB64 = imagesMap[v.id] ? `<img src="${imagesMap[v.id]}" width="90" height="50" />` : 'No Photo';
+      const imgUrl = `${API_BASE}/${v.image_path}`;
+      html += `
+        <tr>
+          <td>#${v.id}</td>
+          <td height="55">${imgB64}</td>
+          <td>${v.timestamp || v.violation_timestamp}</td>
+          <td>${v.location || 'Sayre Highway - Fortich St., Malaybalay City'}</td>
+          <td>${(v.label || 'Vehicle').toUpperCase()}</td>
+          <td>${v.vehicle_color || 'Standard'}</td>
+          <td><b>${v.plate_number || 'UNREAD'}</b></td>
+          <td>${v.stop_duration}s</td>
+          <td>${(v.status || 'recorded').toUpperCase()}</td>
+          <td><a href="${imgUrl}">${imgUrl}</a></td>
+        </tr>
+      `;
+    });
+
+    html += `</tbody></table></body></html>`;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `TMC_Violations_With_Photos_${dateRange.start}_to_${dateRange.end}.xls`;
+    link.click();
   };
 
   const generateCSV = (data) => {
-    const headers = ["ID", "Vehicle", "Plate Number", "Timestamp", "Stop Duration", "Status", "Confidence (%)", "Notes", "Image Path"];
+    const headers = ["ID", "Timestamp", "Location", "Vehicle Class", "Vehicle Color", "Plate Number", "Stop Duration (s)", "Status", "Confidence (%)", "Evidence Photo URL"];
     const rows = data.map(v => [
       v.id,
-      v.label,
-      v.plate_number || 'N/A',
       v.timestamp || v.violation_timestamp,
+      v.location || 'Sayre Highway - Fortich St., Malaybalay City',
+      v.label,
+      v.vehicle_color || 'Standard',
+      v.plate_number || 'UNREAD',
       v.stop_duration,
       v.status,
       v.confidence ? (v.confidence * 100).toFixed(1) : '0',
-      v.notes || '',
-      v.image_path
+      `${API_BASE}/${v.image_path}`
     ]);
 
-    // Robust CSV generation with field quoting
     const content = [headers, ...rows]
       .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(","))
       .join("\n");
@@ -177,15 +398,25 @@ export function Reports() {
           <h2 className="text-3xl font-bold tracking-tight">Analytics & Reports</h2>
           <p className="text-muted mt-1">Detailed breakdown of traffic violations and trends</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-3">
+          <button 
+            onClick={() => {
+              setPendingExportType('EXCEL');
+              setShowRangeModal(true);
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm font-bold text-emerald-400"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Export Excel (.xls)
+          </button>
           <button 
             onClick={() => {
               setPendingExportType('CSV');
               setShowRangeModal(true);
             }}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm font-bold"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm font-bold text-blue-400"
           >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <FileSpreadsheet className="w-4 h-4" />
             Export CSV
           </button>
           <button 
@@ -296,7 +527,7 @@ export function Reports() {
           </div>
           
           <div className="h-[350px] w-full min-h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={100}>
               <AreaChart data={trendData}>
                 <defs>
                   <linearGradient id="colorViolations" x1="0" y1="0" x2="0" y2="1">
@@ -339,7 +570,7 @@ export function Reports() {
           <h3 className="text-xl font-bold mb-6">Type Distribution</h3>
           
           <div className="h-[250px] w-full min-h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={100}>
               <PieChart>
                 <Pie
                   data={pieData}

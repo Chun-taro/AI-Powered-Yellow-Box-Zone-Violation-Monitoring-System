@@ -55,6 +55,7 @@ class MonitoringService:
         self.vehicle_types = {}
         self.vehicle_confidences = {}
         self.vehicle_loading_status = {}
+        self.cached_plates = {}  # {obj_id: plate_number} - Temporary cache while in yellowbox
         
         self.fps_current = 0
         self.fps_ai = 0
@@ -228,11 +229,13 @@ class MonitoringService:
                     x1, y1, x2, y2 = bbox
                     is_in_zone = False
                     if self.yellow_zone is not None:
-                        # Explicitly cast to float for OpenCV compatibility
+                        # Test center, bottom ground-contact, and lower-body of bounding box against yellow zone
                         test_pt1 = (float(x1 + (x2 - x1) / 2), float(y1 + (y2 - y1) / 2))
-                        test_pt2 = (float(x1 + (x2 - x1) / 2), float(y1 + (y2 - y1) * 0.5))
+                        test_pt2 = (float(x1 + (x2 - x1) / 2), float(y2))
+                        test_pt3 = (float(x1 + (x2 - x1) / 2), float(y1 + (y2 - y1) * 0.75))
                         is_in_zone = cv2.pointPolygonTest(self.yellow_zone, test_pt1, False) >= 0 or \
-                                     cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0
+                                     cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
+                                     cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0
                     
                     if not is_in_zone: continue
                     
@@ -273,6 +276,75 @@ class MonitoringService:
                 if self.camera:
                     self.camera.close()
                     self.camera = None
+        
+        # Tracking State
+        self.vehicle_timers = {}
+        self.movement_start_pos = {}
+        self.is_stopped_map = {}
+        self.violated_ids = set()
+        self.vehicle_types = {}
+        self.vehicle_confidences = {}
+        self.vehicle_loading_status = {}
+        self.cached_plates = {}  # {obj_id: plate_number} - Temporary cache while in yellowbox
+        
+        self.fps_current = 0
+        self.fps_ai = 0
+        self.person_count = 0
+        self.vehicle_count = 0
+
+    def _extract_vehicle_color(self, crop_img):
+        """Extract dominant vehicle body color using body-region HSV pixel masking."""
+        if crop_img is None or crop_img.size == 0:
+            return "White"
+        try:
+            h, w, _ = crop_img.shape
+            if h < 10 or w < 10:
+                return "White"
+            
+            # Focus on central vehicle body (exclude tires, road asphalt, and upper windshield glass)
+            y1_crop = int(h * 0.18)
+            y2_crop = int(h * 0.78)
+            x1_crop = int(w * 0.12)
+            x2_crop = int(w * 0.88)
+            
+            body = crop_img[y1_crop:y2_crop, x1_crop:x2_crop]
+            if body.size == 0:
+                body = crop_img
+
+            hsv = cv2.cvtColor(body, cv2.COLOR_BGR2HSV)
+            total_pixels = body.shape[0] * body.shape[1]
+            if total_pixels == 0:
+                return "White"
+
+            # Color ranges in OpenCV HSV space (H: 0-180, S: 0-255, V: 0-255)
+            colors = {
+                "White": cv2.inRange(hsv, np.array([0, 0, 160]), np.array([180, 50, 255])),
+                "Black": cv2.inRange(hsv, np.array([0, 0, 0]), np.array([180, 255, 60])),
+                "Silver / Gray": cv2.inRange(hsv, np.array([0, 0, 60]), np.array([180, 50, 160])),
+                "Red": cv2.bitwise_or(
+                    cv2.inRange(hsv, np.array([0, 50, 60]), np.array([10, 255, 255])),
+                    cv2.inRange(hsv, np.array([160, 50, 60]), np.array([180, 255, 255]))
+                ),
+                "Blue": cv2.inRange(hsv, np.array([85, 50, 60]), np.array([135, 255, 255])),
+                "Yellow": cv2.inRange(hsv, np.array([15, 50, 100]), np.array([35, 255, 255])),
+                "Green": cv2.inRange(hsv, np.array([35, 50, 60]), np.array([85, 255, 255])),
+                "Orange": cv2.inRange(hsv, np.array([10, 50, 100]), np.array([22, 255, 255])),
+            }
+
+            counts = {}
+            for color_name, mask in colors.items():
+                counts[color_name] = cv2.countNonZero(mask)
+
+            dominant_color = max(counts, key=counts.get)
+            
+            # Fallback if no clear color threshold met
+            if counts[dominant_color] < (total_pixels * 0.08):
+                return "White"
+                
+            return dominant_color
+        except Exception as e:
+            logging.warning(f"Vehicle color detection error: {e}")
+            return "White"
 
     def _save_violation(self, frame, bbox, obj_id, label, elapsed, confidence=0.0):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -284,20 +356,30 @@ class MonitoringService:
         cv2.rectangle(cropped, (x1-cx1, y1-cy1), (x2-cx1, y2-cy1), (0, 0, 255), 2)
         cv2.putText(cropped, "VIOLATION", (x1-cx1, y1-cy1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
-        # --- LPR: Read plate from vehicle crop ---
-        plate_number = None
-        try:
-            plate_crop = crop_plate_region(frame, bbox)
-            if plate_crop is not None:
-                plate_number = lpr_reader.read_plate(plate_crop)
-                if plate_number:
-                    logging.info(f"LPR detected plate: {plate_number} for vehicle ID {obj_id}")
-                    # Overlay plate on violation image
-                    cv2.putText(cropped, f"PLATE: {plate_number}",
-                                (x1-cx1, y2-cy1+20),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        except Exception as e:
-            logging.warning(f"LPR failed for vehicle {obj_id}: {e}")
+        # Extract vehicle color
+        vehicle_crop = frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
+        vehicle_color = self._extract_vehicle_color(vehicle_crop)
+        
+        # Overlay color on evidence image
+        cv2.putText(cropped, f"COLOR: {vehicle_color}",
+                    (x1-cx1, y2-cy1+40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+
+        # --- LPR: Read plate or use pre-captured plate ---
+        plate_number = self.cached_plates.get(obj_id)
+        if not plate_number:
+            try:
+                plate_crop = crop_plate_region(frame, bbox)
+                if plate_crop is not None:
+                    plate_number = lpr_reader.read_plate(plate_crop)
+            except Exception as e:
+                logging.warning(f"LPR failed for vehicle {obj_id}: {e}")
+        
+        if plate_number:
+            logging.info(f"LPR confirmed plate: {plate_number} for vehicle ID {obj_id}")
+            cv2.putText(cropped, f"PLATE: {plate_number}",
+                        (x1-cx1, y2-cy1+20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
         
         filename = f"violation_{timestamp}_{label}_{obj_id}.jpg"
         save_path = os.path.join("static", "violations", filename)
@@ -305,6 +387,7 @@ class MonitoringService:
         
         db_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         db_image_path = f"violations/{filename}"
+        location_name = "Sayre Highway - Fortich St., Malaybalay City"
         
         try:
             if hasattr(self.db, 'insert_violation'):
@@ -313,7 +396,8 @@ class MonitoringService:
                     vehicle_type=label, timestamp=db_timestamp, image_path=db_image_path,
                     image_blob=buffer.tobytes() if ret else None, detection_id=f"{timestamp}_{obj_id}",
                     stop_duration=elapsed, notes=f"Object ID: {obj_id}, Stopped for {elapsed:.1f}s",
-                    plate_number=plate_number, confidence=confidence
+                    plate_number=plate_number, confidence=confidence,
+                    location=location_name, vehicle_color=vehicle_color
                 )
             
             from utils.events import new_violation_event
@@ -345,153 +429,180 @@ class MonitoringService:
                     time.sleep(0.01)
                     continue
                 
-                current_time = time.time()
-                ai_frames += 1
-                if current_time - ai_last_time >= 1.0:
-                    self.fps_ai = ai_frames
-                    ai_frames = 0
-                    ai_last_time = current_time
+                try:
+                    current_time = time.time()
+                    ai_frames += 1
+                    if current_time - ai_last_time >= 1.0:
+                        self.fps_ai = ai_frames
+                        ai_frames = 0
+                        ai_last_time = current_time
 
-                # AI Inference (Full frame)
-                detections_raw = self.detector.detect(frame)
-                
-                class_names = {0: 'person', 2: 'car', 3: 'motorcycle', 5: 'bus', 7: 'truck'}
-                detections_for_tracker = []
-                bbox_to_label = {}
-                bbox_to_conf = {}
-                person_count = 0
-                vehicle_count = 0
-                current_persons = []
-                
-                for detection in detections_raw:
-                    cls_id = detection['class']
-                    conf = detection['confidence']
-                    if cls_id not in class_names: continue
-                    label = class_names[cls_id]
-                    if label in ['truck', 'bus', 'vehicle']: label = 'car'
-                    x1, y1, x2, y2 = map(int, detection['bbox'])
-                    cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+                    # AI Inference (Full frame)
+                    detections_raw = self.detector.detect(frame)
                     
-                    # 1. Detection logic for vehicles (PRIORITY)
-                    if label == 'car':
-                        is_in_zone = False
-                        if self.yellow_zone is not None:
-                            test_pt1 = (float(cx), float(cy))
-                            test_pt2 = (float(cx), float(y1 + (y2 - y1) * 0.5))
-                            is_in_zone = cv2.pointPolygonTest(self.yellow_zone, test_pt1, False) >= 0 or \
-                                         cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0
-                        else:
-                            # If no zone is defined, we track everything
-                            is_in_zone = True
-                        
-                        if is_in_zone:
-                            vehicle_count += 1
-                            rect = (x1, y1, x2, y2)
-                            detections_for_tracker.append(rect)
-                            bbox_to_label[rect] = label
-                            bbox_to_conf[rect] = conf
+                    class_names = {0: 'person', 2: 'car', 3: 'motorcycle', 5: 'bus', 7: 'truck'}
+                    detections_for_tracker = []
+                    bbox_to_label = {}
+                    bbox_to_conf = {}
+                    person_count = 0
+                    vehicle_count = 0
+                    current_persons = []
                     
-                    # 2. Detection logic for persons (Suppressed if overlapping with vehicles)
-                    elif label == 'person':
-                        if conf < 0.45: continue
+                    for detection in detections_raw:
+                        cls_id = detection['class']
+                        conf = detection['confidence']
+                        if cls_id not in class_names: continue
+                        label = class_names[cls_id]
+                        if label in ['truck', 'bus', 'vehicle', 'motorcycle']: label = 'car'
+                        x1, y1, x2, y2 = map(int, detection['bbox'])
+                        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
                         
-                        # SIDEWALK FILTER: Only detect persons on the right side of the frame
-                        # People on the left are typically enforcers or motorcycle riders
-                        frame_w = frame.shape[1]
-                        if cx < (frame_w // 2): continue
-
-                        # OVERLAP FILTER: Skip if this person is already inside a vehicle detection
-                        is_inside_vehicle = False
-                        for v_rect in detections_for_tracker:
-                            vx1, vy1, vx2, vy2 = v_rect
-                            # If person bbox is 80% inside a vehicle bbox, it's likely a misdetection
-                            if x1 > vx1-10 and y1 > vy1-10 and x2 < vx2+10 and y2 < vy2+10:
-                                is_inside_vehicle = True
-                                break
+                        # 1. Detection logic for vehicles (PRIORITY)
+                        if label == 'car':
+                            is_in_zone = False
+                            if self.yellow_zone is not None:
+                                test_pt1 = (float(cx), float(cy))
+                                test_pt2 = (float(cx), float(y2))
+                                test_pt3 = (float(cx), float(y1 + (y2 - y1) * 0.75))
+                                is_in_zone = cv2.pointPolygonTest(self.yellow_zone, test_pt1, False) >= 0 or \
+                                             cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
+                                             cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0
+                            else:
+                                # If no zone is defined, we track everything
+                                is_in_zone = True
+                            
+                            if is_in_zone:
+                                vehicle_count += 1
+                                rect = (x1, y1, x2, y2)
+                                detections_for_tracker.append(rect)
+                                bbox_to_label[rect] = label
+                                bbox_to_conf[rect] = conf
                         
-                        if is_inside_vehicle: continue
+                        # 2. Detection logic for persons (Suppressed if overlapping with vehicles)
+                        elif label == 'person':
+                            if conf < 0.45: continue
+                            
+                            # SIDEWALK FILTER: Only detect persons on the right side of the frame
+                            # People on the left are typically enforcers or motorcycle riders
+                            frame_w = frame.shape[1]
+                            if cx < (frame_w // 2): continue
 
-                        # Track persons near the zone for loading/unloading detection
-                        if self.yellow_zone is not None:
-                            dist_to_zone = cv2.pointPolygonTest(self.yellow_zone, (float(cx), float(cy)), True)
-                            if dist_to_zone >= -250: # Includes inside (>=0) and nearby (-250 to 0)
+                            # OVERLAP FILTER: Skip if this person is already inside a vehicle detection
+                            is_inside_vehicle = False
+                            for v_rect in detections_for_tracker:
+                                vx1, vy1, vx2, vy2 = v_rect
+                                # If person bbox is 80% inside a vehicle bbox, it's likely a misdetection
+                                if x1 > vx1-10 and y1 > vy1-10 and x2 < vx2+10 and y2 < vy2+10:
+                                    is_inside_vehicle = True
+                                    break
+                            
+                            if is_inside_vehicle: continue
+
+                            # Track persons near the zone for loading/unloading detection
+                            if self.yellow_zone is not None:
+                                dist_to_zone = cv2.pointPolygonTest(self.yellow_zone, (float(cx), float(cy)), True)
+                                if dist_to_zone >= -250: # Includes inside (>=0) and nearby (-250 to 0)
+                                    person_count += 1
+                                    current_persons.append((x1, y1, x2, y2, cx, cy, conf))
+                            else:
                                 person_count += 1
                                 current_persons.append((x1, y1, x2, y2, cx, cy, conf))
-                        else:
-                            person_count += 1
-                            current_persons.append((x1, y1, x2, y2, cx, cy, conf))
 
-                # Tracking Update
-                self.tracked_objects_map = self.tracker.update(detections_for_tracker)
-                self.bbox_to_label.update(bbox_to_label)
-                
-                # Update confidence for tracked objects
-                for obj_id, (centroid, bbox) in self.tracked_objects_map.items():
-                    bbox_tuple = tuple(bbox)
-                    if bbox_tuple in bbox_to_conf:
-                        self.vehicle_confidences[obj_id] = bbox_to_conf[bbox_tuple]
-                    if bbox_tuple in bbox_to_label:
-                         self.vehicle_types[obj_id] = bbox_to_label[bbox_tuple]
+                    # Tracking Update
+                    self.tracked_objects_map = self.tracker.update(detections_for_tracker)
+                    self.bbox_to_label.update(bbox_to_label)
+                    
+                    # Update confidence for tracked objects
+                    for obj_id, (centroid, bbox) in self.tracked_objects_map.items():
+                        bbox_tuple = tuple(bbox)
+                        if bbox_tuple in bbox_to_conf:
+                            self.vehicle_confidences[obj_id] = bbox_to_conf[bbox_tuple]
+                        if bbox_tuple in bbox_to_label:
+                             self.vehicle_types[obj_id] = bbox_to_label[bbox_tuple]
 
-                self.person_count = person_count
-                self.vehicle_count = vehicle_count
-                self.current_persons = current_persons
+                    self.person_count = person_count
+                    self.vehicle_count = vehicle_count
+                    self.current_persons = current_persons
 
-                # VIOLATION LOGIC (Moved to AI thread to prevent main loop slowdown)
-                current_frame_ids = set()
-                # VIOLATION LOGIC (Working with thread-safe current snap)
-                for obj_id, (centroid, bbox) in self.tracked_objects_map.copy().items():
-                    if self.tracker.disappeared.get(obj_id, 0) > 15: continue
-                    current_frame_ids.add(obj_id)
-                    x1, y1, x2, y2 = bbox
-                    scx, scy = (x1+x2)//2, (y1+y2)//2
-                    
-                    if self.yellow_zone is not None:
-                        is_in_zone = cv2.pointPolygonTest(self.yellow_zone, (float(scx), float(scy)), False) >= 0
-                    else:
-                        is_in_zone = False
-                    
-                    # Stopped Detection
-                    if obj_id not in self.movement_start_pos:
-                        self.movement_start_pos[obj_id] = (current_time, scx, scy)
-                    else:
-                        start_t, start_x, start_y = self.movement_start_pos[obj_id]
-                        if current_time - start_t >= 1.0:
-                            dist = math.hypot(scx - start_x, scy - start_y)
-                            self.is_stopped_map[obj_id] = dist < 15
-                            self.movement_start_pos[obj_id] = (current_time, scx, scy)
-                    
-                    # Loading status
-                    for p_data in current_persons:
-                        pcx, pcy = p_data[4], p_data[5]
-                        if pcx > scx:
-                            dist = math.sqrt((pcx - max(x1, min(pcx, x2)))**2 + (pcy - max(y1, min(pcy, y2)))**2)
-                            if dist < 60 or (x1 <= pcx <= x2 and y1 <= pcy <= y2):
-                                self.vehicle_loading_status[obj_id] = current_time
-                    
-                    # Timer & Violation
-                    if is_in_zone:
-                        is_loading = (current_time - self.vehicle_loading_status.get(obj_id, 0)) < 3.0
-                        is_stopped = self.is_stopped_map.get(obj_id, False)
+                    # VIOLATION LOGIC (Moved to AI thread to prevent main loop slowdown)
+                    current_frame_ids = set()
+                    # VIOLATION LOGIC (Working with thread-safe current snap)
+                    for obj_id, (centroid, bbox) in self.tracked_objects_map.copy().items():
+                        if self.tracker.disappeared.get(obj_id, 0) > 15: continue
+                        current_frame_ids.add(obj_id)
+                        x1, y1, x2, y2 = bbox
+                        scx, scy = (x1+x2)//2, (y1+y2)//2
                         
-                        if is_stopped and not is_loading:
-                            if obj_id not in self.vehicle_timers: self.vehicle_timers[obj_id] = current_time
-                            elapsed = current_time - self.vehicle_timers[obj_id]
-                            if elapsed >= time_limit and obj_id not in self.violated_ids:
-                                self.violated_ids.add(obj_id)
-                                # Pre-encode frame for violation if camera is available
-                                self._save_violation(
-                                    frame, bbox, obj_id, 
-                                    self.vehicle_types.get(obj_id, 'car'), 
-                                    elapsed,
-                                    confidence=self.vehicle_confidences.get(obj_id, 0.0)
-                                )
+                        if self.yellow_zone is not None:
+                            test_pt1 = (float(scx), float(scy))
+                            test_pt2 = (float(scx), float(y2))
+                            test_pt3 = (float(scx), float(y1 + (y2 - y1) * 0.75))
+                            is_in_zone = cv2.pointPolygonTest(self.yellow_zone, test_pt1, False) >= 0 or \
+                                         cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
+                                         cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0
                         else:
+                            is_in_zone = False
+                        
+                        # Stopped Detection
+                        if obj_id not in self.movement_start_pos:
+                            self.movement_start_pos[obj_id] = (current_time, scx, scy)
+                        else:
+                            start_t, start_x, start_y = self.movement_start_pos[obj_id]
+                            if current_time - start_t >= 1.0:
+                                dist = math.hypot(scx - start_x, scy - start_y)
+                                self.is_stopped_map[obj_id] = dist < 15
+                                self.movement_start_pos[obj_id] = (current_time, scx, scy)
+                        
+                        # Loading status
+                        for p_data in current_persons:
+                            pcx, pcy = p_data[4], p_data[5]
+                            if pcx > scx:
+                                dist = math.sqrt((pcx - max(x1, min(pcx, x2)))**2 + (pcy - max(y1, min(pcy, y2)))**2)
+                                if dist < 60 or (x1 <= pcx <= x2 and y1 <= pcy <= y2):
+                                    self.vehicle_loading_status[obj_id] = current_time
+                        
+                        # Timer & Violation Logic
+                        if is_in_zone:
+                            # Pre-capture LPR plate upon entering yellow box zone
+                            if obj_id not in self.cached_plates:
+                                try:
+                                    plate_crop = crop_plate_region(frame, bbox)
+                                    if plate_crop is not None:
+                                        read_p = lpr_reader.read_plate(plate_crop)
+                                        if read_p:
+                                            self.cached_plates[obj_id] = read_p
+                                except Exception:
+                                    pass
+
+                            is_loading = (current_time - self.vehicle_loading_status.get(obj_id, 0)) < 3.0
+                            is_stopped = self.is_stopped_map.get(obj_id, False)
+                            
+                            if is_stopped and not is_loading:
+                                if obj_id not in self.vehicle_timers: self.vehicle_timers[obj_id] = current_time
+                                elapsed = current_time - self.vehicle_timers[obj_id]
+                                if elapsed >= time_limit and obj_id not in self.violated_ids:
+                                    self.violated_ids.add(obj_id)
+                                    # Pre-encode frame for violation if camera is available
+                                    self._save_violation(
+                                        frame, bbox, obj_id, 
+                                        self.vehicle_types.get(obj_id, 'car'), 
+                                        elapsed,
+                                        confidence=self.vehicle_confidences.get(obj_id, 0.0)
+                                    )
+                            else:
+                                self.vehicle_timers.pop(obj_id, None)
+                        else:
+                            # Discard captured plate if vehicle leaves yellowbox without violation
+                            if obj_id not in self.violated_ids:
+                                self.cached_plates.pop(obj_id, None)
                             self.vehicle_timers.pop(obj_id, None)
-                    
-                    # Periodic local check (optional if shared state is updated by main loop)
-                    if ai_frames % 10 == 0:
-                        self._check_zone_update()
+                        
+                        # Periodic local check (optional if shared state is updated by main loop)
+                        if ai_frames % 10 == 0:
+                            self._check_zone_update()
+                except Exception as e:
+                    logging.error(f"Error in AI loop iteration: {e}")
+                    time.sleep(0.05)
 
         except Exception as e:
             logging.error(f"Error in AI loop: {e}")
