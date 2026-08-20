@@ -14,8 +14,7 @@ import {
   Activity,
   Layers,
   CheckSquare,
-  Lock,
-  CheckCircle2
+  Lock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -288,408 +287,562 @@ export function EvaluationSurvey() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-16">
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl glass border border-white/10 p-8 shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl -z-10 pointer-events-none" />
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold uppercase tracking-wider">
-              <ClipboardCheck className="w-4 h-4" />
-              ISO/IEC 25010 Software Quality Evaluation Standard (18 Metrics)
-            </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-              Usability & System Evaluation Survey
-            </h1>
-            <p className="text-muted text-sm max-w-2xl">
-              Formal ISO/IEC 25010 research evaluation questionnaire for Traffic Management Center (TMC) personnel assessing Functional Suitability, Usability, Performance Efficiency, Reliability, Security, and Operational Quality-in-Use ($N=10$).
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass hover:bg-white/10 text-white font-semibold text-sm transition-all duration-200 border border-white/10"
-            >
-              <Printer className="w-4 h-4 text-accent" />
-              Print Form
-            </button>
-            <button
-              onClick={handleReset}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass hover:bg-white/10 text-muted hover:text-white font-semibold text-sm transition-all duration-200 border border-white/10"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Live Benchmark Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass rounded-2xl p-4 border border-white/10 relative overflow-hidden"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Overall Score</span>
-            <Award className="w-4 h-4 text-primary" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-2xl font-extrabold text-white">{stats.mean.toFixed(2)}</span>
-            <span className="text-[10px] text-muted">/ 5.00</span>
-          </div>
-          <div className="mt-1">
-            <span className={`text-[9px] px-2 py-0.5 rounded-md font-semibold border ${getVerbalInterpretation(stats.mean).color}`}>
-              {getVerbalInterpretation(stats.mean).text}
-            </span>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="glass rounded-2xl p-4 border border-white/10"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Functionality</span>
-            <Zap className="w-4 h-4 text-accent" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xl font-extrabold text-white">
-              {stats.categories['Functional Suitability (ISO 25010)']?.mean.toFixed(2) || '0.00'}
-            </span>
-          </div>
-          <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.1</p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="glass rounded-2xl p-4 border border-white/10"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Usability</span>
-            <Layers className="w-4 h-4 text-blue-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xl font-extrabold text-white">
-              {stats.categories['Usability & UI Aesthetics (ISO 25010)']?.mean.toFixed(2) || '0.00'}
-            </span>
-          </div>
-          <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.4</p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="glass rounded-2xl p-4 border border-white/10"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Reliability</span>
-            <Activity className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xl font-extrabold text-white">
-              {stats.categories['Performance & Reliability (ISO 25010)']?.mean.toFixed(2) || '0.00'}
-            </span>
-          </div>
-          <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.2/4.5</p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="glass rounded-2xl p-4 border border-white/10"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Security</span>
-            <Lock className="w-4 h-4 text-orange-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xl font-extrabold text-white">
-              {stats.categories['Security & Maintainability (ISO 25010)']?.mean.toFixed(2) || '0.00'}
-            </span>
-          </div>
-          <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.6/4.7</p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="glass rounded-2xl p-4 border border-white/10"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Impact</span>
-            <CheckSquare className="w-4 h-4 text-purple-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xl font-extrabold text-white">
-              {stats.categories['Operational Quality-in-Use (ISO 25010)']?.mean.toFixed(2) || '0.00'}
-            </span>
-          </div>
-          <p className="mt-1 text-[9px] text-muted">Quality in Use</p>
-        </motion.div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Evaluator Profile Section */}
-        <div className="glass rounded-3xl p-6 md:p-8 border border-white/10 space-y-6">
-          <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30 text-primary">
-              <UserCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">Part I: Evaluator Demographic & Operational Profile</h2>
-              <p className="text-xs text-muted">ISO/IEC 25010 evaluator background context ($N=10$ sample validation)</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                Evaluator Name / ID (Optional)
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Officer Juan Dela Cruz"
-                value={evaluatorName}
-                onChange={(e) => setEvaluatorName(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white placeholder-muted/50 focus:outline-none focus:border-primary transition-colors text-sm"
-              />
+      {/* ==================================================== */}
+      {/* SCREEN UI VIEW (HIDDEN DURING PRINTING) */}
+      {/* ==================================================== */}
+      <div className="print:hidden space-y-8">
+        {/* Header Banner */}
+        <div className="relative overflow-hidden rounded-3xl glass border border-white/10 p-8 shadow-2xl">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl -z-10 pointer-events-none" />
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold uppercase tracking-wider">
+                <ClipboardCheck className="w-4 h-4" />
+                ISO/IEC 25010 Software Quality Evaluation Standard (18 Metrics)
+              </div>
+              <h1 className="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
+                Usability & System Evaluation Survey
+              </h1>
+              <p className="text-muted text-sm max-w-2xl">
+                Formal ISO/IEC 25010 research evaluation questionnaire for Traffic Management Center (TMC) personnel assessing Functional Suitability, Usability, Performance Efficiency, Reliability, Security, and Operational Quality-in-Use ($N=10$).
+              </p>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                Designation / Role
-              </label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white focus:outline-none focus:border-primary transition-colors text-sm"
-              >
-                <option value="Traffic Management Officer">Traffic Management Officer / Enforcer</option>
-                <option value="Camera System Operator">Surveillance & Camera System Operator</option>
-                <option value="TMC Supervisor / IT Staff">TMC Supervisor / IT Staff</option>
-                <option value="Research Evaluator">Research Evaluator / Guest Tester</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                Enforcement Experience
-              </label>
-              <select
-                value={experience}
-                onChange={(e) => setExperience(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white focus:outline-none focus:border-primary transition-colors text-sm"
-              >
-                <option value="Less than 1 Year">Less than 1 Year</option>
-                <option value="1 – 3 Years">1 – 3 Years</option>
-                <option value="4 – 6 Years">4 – 6 Years</option>
-                <option value="More than 6 Years">More than 6 Years</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                Primary Duty Shift
-              </label>
-              <select
-                value={shift}
-                onChange={(e) => setShift(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white focus:outline-none focus:border-primary transition-colors text-sm"
-              >
-                <option value="Day Shift (6:00 AM - 2:00 PM)">Day Shift (6:00 AM - 2:00 PM)</option>
-                <option value="Afternoon Shift (2:00 PM - 10:00 PM)">Afternoon Shift (2:00 PM - 10:00 PM)</option>
-                <option value="Night Shift (10:00 PM - 6:00 AM)">Night Shift (10:00 PM - 6:00 AM)</option>
-                <option value="Rotating / Full Oversight">Rotating / Full Day Oversight</option>
-              </select>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                Primary Operational Environment
-              </label>
-              <select
-                value={environment}
-                onChange={(e) => setEnvironment(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white focus:outline-none focus:border-primary transition-colors text-sm"
-              >
-                <option value="Central Control Room">Central Control Room (Multi-monitor Workstation)</option>
-                <option value="Field Operations / Mobile">Field Operations (Mobile / Tablet Monitoring)</option>
-                <option value="Hybrid Operations">Hybrid (Control Room & On-Site Enforcement)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Survey Items Matrix Section */}
-        <div className="glass rounded-3xl p-6 md:p-8 border border-white/10 space-y-8">
-          <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center border border-accent/30 text-accent">
-                <BarChart3 className="w-5 h-5" />
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-accent to-primary text-black font-extrabold text-sm transition-all duration-200 shadow-lg shadow-accent/20 hover:opacity-90 cursor-pointer"
+              >
+                <Printer className="w-4 h-4 text-black" />
+                Print Clean Form
+              </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl glass hover:bg-white/10 text-muted hover:text-white font-semibold text-sm transition-all duration-200 border border-white/10 cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Benchmark Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass rounded-2xl p-4 border border-white/10 relative overflow-hidden"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Overall Score</span>
+              <Award className="w-4 h-4 text-primary" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl font-extrabold text-white">{stats.mean.toFixed(2)}</span>
+              <span className="text-[10px] text-muted">/ 5.00</span>
+            </div>
+            <div className="mt-1">
+              <span className={`text-[9px] px-2 py-0.5 rounded-md font-semibold border ${getVerbalInterpretation(stats.mean).color}`}>
+                {getVerbalInterpretation(stats.mean).text}
+              </span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="glass rounded-2xl p-4 border border-white/10"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Functionality</span>
+              <Zap className="w-4 h-4 text-accent" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-xl font-extrabold text-white">
+                {stats.categories['Functional Suitability (ISO 25010)']?.mean.toFixed(2) || '0.00'}
+              </span>
+            </div>
+            <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.1</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="glass rounded-2xl p-4 border border-white/10"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Usability</span>
+              <Layers className="w-4 h-4 text-blue-400" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-xl font-extrabold text-white">
+                {stats.categories['Usability & UI Aesthetics (ISO 25010)']?.mean.toFixed(2) || '0.00'}
+              </span>
+            </div>
+            <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.4</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="glass rounded-2xl p-4 border border-white/10"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Reliability</span>
+              <Activity className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-xl font-extrabold text-white">
+                {stats.categories['Performance & Reliability (ISO 25010)']?.mean.toFixed(2) || '0.00'}
+              </span>
+            </div>
+            <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.2/4.5</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="glass rounded-2xl p-4 border border-white/10"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Security</span>
+              <Lock className="w-4 h-4 text-orange-400" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-xl font-extrabold text-white">
+                {stats.categories['Security & Maintainability (ISO 25010)']?.mean.toFixed(2) || '0.00'}
+              </span>
+            </div>
+            <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.6/4.7</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="glass rounded-2xl p-4 border border-white/10"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Impact</span>
+              <CheckSquare className="w-4 h-4 text-purple-400" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-xl font-extrabold text-white">
+                {stats.categories['Operational Quality-in-Use (ISO 25010)']?.mean.toFixed(2) || '0.00'}
+              </span>
+            </div>
+            <p className="mt-1 text-[9px] text-muted">Quality in Use</p>
+          </motion.div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Evaluator Profile Section */}
+          <div className="glass rounded-3xl p-6 md:p-8 border border-white/10 space-y-6">
+            <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30 text-primary">
+                <UserCheck className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Part II: ISO/IEC 25010 Assessment Metrics (18 Items)</h2>
-                <p className="text-xs text-muted">5-Point Likert Scale (1 = Strongly Disagree to 5 = Strongly Agree)</p>
+                <h2 className="text-lg font-bold text-white">Part I: Evaluator Demographic & Operational Profile</h2>
+                <p className="text-xs text-muted">ISO/IEC 25010 evaluator background context ($N=10$ sample validation)</p>
               </div>
             </div>
 
-            <div className="hidden lg:flex items-center gap-2 text-xs text-muted font-medium">
-              <span className="px-2 py-1 rounded bg-white/5 border border-white/10">1: SD</span>
-              <span className="px-2 py-1 rounded bg-white/5 border border-white/10">2: D</span>
-              <span className="px-2 py-1 rounded bg-white/5 border border-white/10">3: N</span>
-              <span className="px-2 py-1 rounded bg-white/5 border border-white/10">4: A</span>
-              <span className="px-2 py-1 rounded bg-white/5 border border-white/10">5: SA</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                  Evaluator Name / ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Officer Juan Dela Cruz"
+                  value={evaluatorName}
+                  onChange={(e) => setEvaluatorName(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white placeholder-muted/50 focus:outline-none focus:border-primary transition-colors text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                  Designation / Role
+                </label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white focus:outline-none focus:border-primary transition-colors text-sm"
+                >
+                  <option value="Traffic Management Officer">Traffic Management Officer / Enforcer</option>
+                  <option value="Camera System Operator">Surveillance & Camera System Operator</option>
+                  <option value="TMC Supervisor / IT Staff">TMC Supervisor / IT Staff</option>
+                  <option value="Research Evaluator">Research Evaluator / Guest Tester</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                  Enforcement Experience
+                </label>
+                <select
+                  value={experience}
+                  onChange={(e) => setExperience(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white focus:outline-none focus:border-primary transition-colors text-sm"
+                >
+                  <option value="Less than 1 Year">Less than 1 Year</option>
+                  <option value="1 – 3 Years">1 – 3 Years</option>
+                  <option value="4 – 6 Years">4 – 6 Years</option>
+                  <option value="More than 6 Years">More than 6 Years</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                  Primary Duty Shift
+                </label>
+                <select
+                  value={shift}
+                  onChange={(e) => setShift(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white focus:outline-none focus:border-primary transition-colors text-sm"
+                >
+                  <option value="Day Shift (6:00 AM - 2:00 PM)">Day Shift (6:00 AM - 2:00 PM)</option>
+                  <option value="Afternoon Shift (2:00 PM - 10:00 PM)">Afternoon Shift (2:00 PM - 10:00 PM)</option>
+                  <option value="Night Shift (10:00 PM - 6:00 AM)">Night Shift (10:00 PM - 6:00 AM)</option>
+                  <option value="Rotating / Full Oversight">Rotating / Full Day Oversight</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                  Primary Operational Environment
+                </label>
+                <select
+                  value={environment}
+                  onChange={(e) => setEnvironment(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white focus:outline-none focus:border-primary transition-colors text-sm"
+                >
+                  <option value="Central Control Room">Central Control Room (Multi-monitor Workstation)</option>
+                  <option value="Field Operations / Mobile">Field Operations (Mobile / Tablet Monitoring)</option>
+                  <option value="Hybrid Operations">Hybrid (Control Room & On-Site Enforcement)</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          {[
-            'Functional Suitability (ISO 25010)',
-            'Usability & UI Aesthetics (ISO 25010)',
-            'Performance & Reliability (ISO 25010)',
-            'Security & Maintainability (ISO 25010)',
-            'Operational Quality-in-Use (ISO 25010)'
-          ].map((category) => (
-            <div key={category} className="space-y-4">
-              <h3 className="text-sm font-extrabold uppercase tracking-wider text-primary flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-primary" />
-                {category}
-              </h3>
+          {/* Survey Items Matrix Section */}
+          <div className="glass rounded-3xl p-6 md:p-8 border border-white/10 space-y-8">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center border border-accent/30 text-accent">
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Part II: ISO/IEC 25010 Assessment Metrics (18 Items)</h2>
+                  <p className="text-xs text-muted">5-Point Likert Scale (1 = Strongly Disagree to 5 = Strongly Agree)</p>
+                </div>
+              </div>
 
-              <div className="space-y-3">
-                {SURVEY_ITEMS.filter((item) => item.category === category).map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-5 rounded-2xl bg-black/30 border border-white/5 hover:border-white/20 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
-                  >
-                    <div className="space-y-1 max-w-xl">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded bg-primary/10 border border-primary/30 text-primary font-mono font-bold text-xs">
-                          {item.id}
-                        </span>
-                        <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-accent font-semibold">
-                          {item.isoMetric}
-                        </span>
+              <div className="hidden lg:flex items-center gap-2 text-xs text-muted font-medium">
+                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">1: SD</span>
+                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">2: D</span>
+                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">3: N</span>
+                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">4: A</span>
+                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">5: SA</span>
+              </div>
+            </div>
+
+            {[
+              'Functional Suitability (ISO 25010)',
+              'Usability & UI Aesthetics (ISO 25010)',
+              'Performance & Reliability (ISO 25010)',
+              'Security & Maintainability (ISO 25010)',
+              'Operational Quality-in-Use (ISO 25010)'
+            ].map((category) => (
+              <div key={category} className="space-y-4">
+                <h3 className="text-sm font-extrabold uppercase tracking-wider text-primary flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary" />
+                  {category}
+                </h3>
+
+                <div className="space-y-3">
+                  {SURVEY_ITEMS.filter((item) => item.category === category).map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-5 rounded-2xl bg-black/30 border border-white/5 hover:border-white/20 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1 max-w-xl">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded bg-primary/10 border border-primary/30 text-primary font-mono font-bold text-xs">
+                            {item.id}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-accent font-semibold">
+                            {item.isoMetric}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-white/90 mt-1">{item.statement}</p>
+                        <p className="text-[11px] text-muted italic">
+                          Target Score Benchmark: <span className="text-white font-semibold">{item.paperBenchmark.toFixed(2)}</span> (σ = {item.paperStdDev.toFixed(2)})
+                        </p>
                       </div>
-                      <p className="text-sm font-medium text-white/90 mt-1">{item.statement}</p>
-                      <p className="text-[11px] text-muted italic">
-                        Target Score Benchmark: <span className="text-white font-semibold">{item.paperBenchmark.toFixed(2)}</span> (σ = {item.paperStdDev.toFixed(2)})
-                      </p>
-                    </div>
 
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      {LIKERT_OPTIONS.map((opt) => {
-                        const isSelected = responses[item.id] === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => handleRatingChange(item.id, opt.value)}
-                            className={`w-11 h-11 rounded-xl font-bold text-sm transition-all flex flex-col items-center justify-center border ${
-                              isSelected
-                                ? 'bg-primary text-black border-primary shadow-lg shadow-primary/30 scale-105'
-                                : `bg-black/40 text-muted border-white/10 ${opt.color}`
-                            }`}
-                            title={opt.fullName}
-                          >
-                            <span>{opt.value}</span>
-                            <span className="text-[9px] opacity-75 font-normal">{opt.label}</span>
-                          </button>
-                        );
-                      })}
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        {LIKERT_OPTIONS.map((opt) => {
+                          const isSelected = responses[item.id] === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => handleRatingChange(item.id, opt.value)}
+                              className={`w-11 h-11 rounded-xl font-bold text-sm transition-all flex flex-col items-center justify-center border cursor-pointer ${
+                                isSelected
+                                  ? 'bg-primary text-black border-primary shadow-lg shadow-primary/30 scale-105'
+                                  : `bg-black/40 text-muted border-white/10 ${opt.color}`
+                              }`}
+                              title={opt.fullName}
+                            >
+                              <span>{opt.value}</span>
+                              <span className="text-[9px] opacity-75 font-normal">{opt.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Qualitative Feedback Section */}
+          <div className="glass rounded-3xl p-6 md:p-8 border border-white/10 space-y-6">
+            <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30 text-blue-400">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Part III: Operational Feedback & Recommendations</h2>
+                <p className="text-xs text-muted">Qualitative insights for future system expansion & NCAP deployment</p>
               </div>
             </div>
-          ))}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                  1. System Strengths (What features work best for your enforcement tasks?)
+                </label>
+                <textarea
+                  rows={2}
+                  value={strengths}
+                  onChange={(e) => setStrengths(e.target.value)}
+                  placeholder="e.g. StopTimer overlays and automatic snapshot capturing speed up violation verification..."
+                  className="w-full p-4 rounded-xl bg-black/40 border border-white/10 text-white placeholder-muted/50 focus:outline-none focus:border-primary transition-colors text-sm resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                  2. Areas for Improvement (What difficulties or false alerts occurred?)
+                </label>
+                <textarea
+                  rows={2}
+                  value={improvements}
+                  onChange={(e) => setImprovements(e.target.value)}
+                  placeholder="e.g. Heavy rain reflections sometimes alter bounding boxes..."
+                  className="w-full p-4 rounded-xl bg-black/40 border border-white/10 text-white placeholder-muted/50 focus:outline-none focus:border-primary transition-colors text-sm resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                  3. General Comments & Feature Suggestions
+                </label>
+                <textarea
+                  rows={2}
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="e.g. Integration with ALPR/ANPR license plate recognition would further automate processing..."
+                  className="w-full p-4 rounded-xl bg-black/40 border border-white/10 text-white placeholder-muted/50 focus:outline-none focus:border-primary transition-colors text-sm resize-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Submit Action Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 glass rounded-3xl border border-white/10">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="w-6 h-6 text-emerald-400" />
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Calculated Mean: <span className="text-primary font-bold">{stats.mean.toFixed(2)} / 5.00</span>
+                </p>
+                <p className="text-xs text-muted">Verbal Interpretation: {getVerbalInterpretation(stats.mean).text}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 w-full sm:w-auto">
+              <button
+                type="submit"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-black font-extrabold text-sm transition-all shadow-lg shadow-primary/25 cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+                {submitted ? 'Update Questionnaire' : 'Submit Evaluation'}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {/* ==================================================== */}
+      {/* DEDICATED PRINTABLE DOCUMENT VIEW (SHOWN ONLY DURING PRINTING) */}
+      {/* ==================================================== */}
+      <div className="hidden print:block font-serif text-black bg-white p-4 space-y-6 leading-relaxed">
+        {/* Printable Official Header */}
+        <div className="text-center border-b-2 border-black pb-4 space-y-1">
+          <h1 className="text-xl font-bold uppercase tracking-wide">
+            TMC OFFICER USABILITY & SYSTEM EVALUATION QUESTIONNAIRE
+          </h1>
+          <h2 className="text-sm font-bold italic">ISO/IEC 25010 Systems and Software Quality Requirements and Evaluation (SQuaRE)</h2>
+          <p className="text-xs font-semibold">
+            AI-Powered Yellow Box Zone Violation Monitoring System Using AI-Based Camera Detection
+          </p>
+          <p className="text-xs">
+            Traffic Management Center (TMC) – City Government of Malaybalay, Bukidnon
+          </p>
         </div>
 
-        {/* Qualitative Feedback Section */}
-        <div className="glass rounded-3xl p-6 md:p-8 border border-white/10 space-y-6">
-          <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30 text-blue-400">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">Part III: Operational Feedback & Recommendations</h2>
-              <p className="text-xs text-muted">Qualitative insights for future system expansion & NCAP deployment</p>
-            </div>
-          </div>
+        {/* Printable Demographic Table */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold uppercase tracking-wider border-b border-black pb-1">
+            PART I: RESPONDENT DEMOGRAPHIC PROFILE
+          </h3>
+          <table className="w-full text-xs border-collapse border border-black">
+            <tbody>
+              <tr>
+                <td className="p-2 border border-black font-bold w-1/4">Evaluator Name:</td>
+                <td className="p-2 border border-black w-3/4">{evaluatorName || '_____________________________________________'}</td>
+              </tr>
+              <tr>
+                <td className="p-2 border border-black font-bold">Designation / Role:</td>
+                <td className="p-2 border border-black">{role}</td>
+              </tr>
+              <tr>
+                <td className="p-2 border border-black font-bold">Years of Experience:</td>
+                <td className="p-2 border border-black">{experience}</td>
+              </tr>
+              <tr>
+                <td className="p-2 border border-black font-bold">Duty Shift & Environment:</td>
+                <td className="p-2 border border-black">{shift} | {environment}</td>
+              </tr>
+              <tr>
+                <td className="p-2 border border-black font-bold">Date of Evaluation:</td>
+                <td className="p-2 border border-black">{new Date().toLocaleDateString()}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                1. System Strengths (What features work best for your enforcement tasks?)
-              </label>
-              <textarea
-                rows={2}
-                value={strengths}
-                onChange={(e) => setStrengths(e.target.value)}
-                placeholder="e.g. StopTimer overlays and automatic snapshot capturing speed up violation verification..."
-                className="w-full p-4 rounded-xl bg-black/40 border border-white/10 text-white placeholder-muted/50 focus:outline-none focus:border-primary transition-colors text-sm resize-none"
-              />
-            </div>
+        {/* Printable 18 Assessment Indicators Table */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold uppercase tracking-wider border-b border-black pb-1">
+            PART II: ISO/IEC 25010 ASSESSMENT INDICATORS MATRIX
+          </h3>
+          <p className="text-[10px] italic">
+            Rating Scale: 5 = Strongly Agree (SA), 4 = Agree (A), 3 = Neutral (N), 2 = Disagree (D), 1 = Strongly Disagree (SD)
+          </p>
+          <table className="w-full text-[10px] border-collapse border border-black">
+            <thead>
+              <tr className="bg-gray-100 font-bold text-center">
+                <th className="p-1 border border-black w-8">#</th>
+                <th className="p-1 border border-black w-28">ISO Metric</th>
+                <th className="p-1 border border-black text-left">Specific Assessment Indicator</th>
+                <th className="p-1 border border-black w-8">5</th>
+                <th className="p-1 border border-black w-8">4</th>
+                <th className="p-1 border border-black w-8">3</th>
+                <th className="p-1 border border-black w-8">2</th>
+                <th className="p-1 border border-black w-8">1</th>
+              </tr>
+            </thead>
+            <tbody>
+              {SURVEY_ITEMS.map((item) => {
+                const userRating = responses[item.id];
+                return (
+                  <tr key={item.id}>
+                    <td className="p-1 border border-black font-bold text-center">{item.id}</td>
+                    <td className="p-1 border border-black italic font-semibold">{item.isoMetric}</td>
+                    <td className="p-1 border border-black">{item.statement}</td>
+                    {[5, 4, 3, 2, 1].map((val) => (
+                      <td key={val} className="p-1 border border-black text-center font-bold">
+                        {userRating === val ? '[ ✓ ]' : '[   ]'}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                2. Areas for Improvement (What difficulties or false alerts occurred?)
-              </label>
-              <textarea
-                rows={2}
-                value={improvements}
-                onChange={(e) => setImprovements(e.target.value)}
-                placeholder="e.g. Heavy rain reflections sometimes alter bounding boxes..."
-                className="w-full p-4 rounded-xl bg-black/40 border border-white/10 text-white placeholder-muted/50 focus:outline-none focus:border-primary transition-colors text-sm resize-none"
-              />
-            </div>
+        {/* Printable Statistical Summary Table */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold uppercase tracking-wider border-b border-black pb-1">
+            PART III: COMPUTED STATISTICAL SUMMARY BENCHMARK
+          </h3>
+          <table className="w-full text-xs border-collapse border border-black text-center">
+            <thead>
+              <tr className="bg-gray-100 font-bold">
+                <th className="p-1.5 border border-black text-left">ISO/IEC 25010 Category</th>
+                <th className="p-1.5 border border-black w-24">Computed Mean (&mu;)</th>
+                <th className="p-1.5 border border-black w-24">Std. Dev. (&sigma;)</th>
+                <th className="p-1.5 border border-black w-36">Verbal Interpretation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(stats.categories).map(([catName, catData]) => (
+                <tr key={catName}>
+                  <td className="p-1.5 border border-black text-left font-semibold">{catName}</td>
+                  <td className="p-1.5 border border-black font-bold">{catData.mean.toFixed(2)}</td>
+                  <td className="p-1.5 border border-black">{catData.stdDev.toFixed(2)}</td>
+                  <td className="p-1.5 border border-black font-bold">{getVerbalInterpretation(catData.mean).text}</td>
+                </tr>
+              ))}
+              <tr className="bg-gray-100 font-bold">
+                <td className="p-1.5 border border-black text-left uppercase">Overall Acceptability Rating</td>
+                <td className="p-1.5 border border-black text-sm">{stats.mean.toFixed(2)}</td>
+                <td className="p-1.5 border border-black">{stats.stdDev.toFixed(2)}</td>
+                <td className="p-1.5 border border-black uppercase text-sm">{getVerbalInterpretation(stats.mean).text}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                3. General Comments & Feature Suggestions
-              </label>
-              <textarea
-                rows={2}
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                placeholder="e.g. Integration with ALPR/ANPR license plate recognition would further automate processing..."
-                className="w-full p-4 rounded-xl bg-black/40 border border-white/10 text-white placeholder-muted/50 focus:outline-none focus:border-primary transition-colors text-sm resize-none"
-              />
-            </div>
+        {/* Printable Qualitative Feedback */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider border-b border-black pb-1">
+            PART IV: QUALITATIVE FEEDBACK & OPERATIONAL RECOMMENDATIONS
+          </h3>
+          <div className="text-xs space-y-2">
+            <p><span className="font-bold">1. System Strengths:</span> {strengths || '____________________________________________________________________________________________________'}</p>
+            <p><span className="font-bold">2. Areas for Improvement:</span> {improvements || '____________________________________________________________________________________________________'}</p>
+            <p><span className="font-bold">3. General Comments:</span> {feedback || '____________________________________________________________________________________________________'}</p>
           </div>
         </div>
 
-        {/* Submit Action Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 glass rounded-3xl border border-white/10">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="w-6 h-6 text-emerald-400" />
-            <div>
-              <p className="text-sm font-semibold text-white">
-                Calculated Mean: <span className="text-primary font-bold">{stats.mean.toFixed(2)} / 5.00</span>
-              </p>
-              <p className="text-xs text-muted">Verbal Interpretation: {getVerbalInterpretation(stats.mean).text}</p>
-            </div>
+        {/* Printable Signature Block */}
+        <div className="pt-8 flex justify-between items-end text-xs">
+          <div>
+            <p className="font-bold">Evaluator Signature: _________________________________</p>
+            <p className="text-[10px] text-gray-600 mt-0.5">Traffic Management Center (TMC) Officer / Representative</p>
           </div>
-
-          <div className="flex items-center gap-4 w-full sm:w-auto">
-            <button
-              type="submit"
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-black font-extrabold text-sm transition-all shadow-lg shadow-primary/25"
-            >
-              <Send className="w-4 h-4" />
-              {submitted ? 'Update Questionnaire' : 'Submit Evaluation'}
-            </button>
+          <div>
+            <p className="font-bold">Date: ________________________</p>
           </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

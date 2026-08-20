@@ -28,3 +28,47 @@
 ::-webkit-scrollbar-thumb {
   @apply bg-white/10 rounded-full hover:bg-white/20;
 }
+
+/* ==========================================
+   PRINT STYLESHEET (ISO/IEC 25010 QUESTIONNAIRE)
+   ========================================== */
+@media print {
+  /* Hide non-printable navigation, header, buttons, and toasts */
+  header,
+  aside,
+  nav,
+  button,
+  .no-print,
+  [role="status"] {
+    display: none !important;
+  }
+
+  /* Reset main layout padding */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Times New Roman', Georgia, serif !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Clean print containers */
+  .glass {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #999999 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border-radius: 4px !important;
+  }
+
+  @page {
+    margin: 1.5cm;
+    size: portrait;
+  }
+}
