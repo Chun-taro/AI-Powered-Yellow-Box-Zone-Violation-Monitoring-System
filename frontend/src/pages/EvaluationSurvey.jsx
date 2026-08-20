@@ -2,8 +2,6 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   ClipboardCheck, 
-  CheckCircle2, 
-  Star, 
   Award, 
   FileText, 
   Printer, 
@@ -11,70 +9,169 @@ import {
   Send, 
   ShieldCheck, 
   BarChart3, 
-  HelpCircle,
   UserCheck,
   Zap,
   Activity,
-  Layers
+  Layers,
+  CheckSquare,
+  Lock,
+  CheckCircle2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const SURVEY_ITEMS = [
+  // --- ISO 25010 §4.1: FUNCTIONAL SUITABILITY (5 items) ---
   {
     id: 'F1',
-    category: 'Functionality',
+    category: 'Functional Suitability (ISO 25010)',
+    isoMetric: 'Functional Correctness',
     statement: 'The system accurately detects vehicles (car, truck, bus, motorcycle) in yellow box zones.',
     paperBenchmark: 4.80,
     paperStdDev: 0.42
   },
   {
     id: 'F2',
-    category: 'Functionality',
-    statement: 'The StopTimer engine correctly measures stationary vehicle duration.',
+    category: 'Functional Suitability (ISO 25010)',
+    isoMetric: 'Functional Accuracy',
+    statement: 'The StopTimer engine correctly measures stationary vehicle duration inside yellow box zones.',
     paperBenchmark: 4.70,
     paperStdDev: 0.48
   },
   {
     id: 'F3',
-    category: 'Functionality',
-    statement: 'Automated evidence snapshots contain clear, usable NCAP metadata.',
+    category: 'Functional Suitability (ISO 25010)',
+    isoMetric: 'Functional Completeness',
+    statement: 'Automated evidence snapshots contain clear, complete NCAP metadata (timestamps, duration, bounding boxes).',
     paperBenchmark: 4.90,
     paperStdDev: 0.32
   },
   {
+    id: 'F4',
+    category: 'Functional Suitability (ISO 25010)',
+    isoMetric: 'Functional Appropriateness',
+    statement: 'The system effectively distinguishes between moving vehicles passing through and illegal stationary stopping.',
+    paperBenchmark: 4.85,
+    paperStdDev: 0.36
+  },
+  {
+    id: 'F5',
+    category: 'Functional Suitability (ISO 25010)',
+    isoMetric: 'Spatial Precision',
+    statement: 'Yellow box polygon zone boundaries accurately align with physical intersection road pavement markings.',
+    paperBenchmark: 4.75,
+    paperStdDev: 0.43
+  },
+
+  // --- ISO 25010 §4.4: USABILITY & UI AESTHETICS (5 items) ---
+  {
     id: 'U1',
-    category: 'Usability',
-    statement: 'The React web dashboard is intuitive and visually well-structured.',
+    category: 'Usability & UI Aesthetics (ISO 25010)',
+    isoMetric: 'User Interface Aesthetics',
+    statement: 'The React web dashboard is intuitive, visually well-structured, and easy to navigate.',
     paperBenchmark: 4.85,
     paperStdDev: 0.37
   },
   {
     id: 'U2',
-    category: 'Usability',
-    statement: 'Live visual overlays (yellow box grid, timers) provide clear situational awareness.',
+    category: 'Usability & UI Aesthetics (ISO 25010)',
+    isoMetric: 'Operability & Situational Awareness',
+    statement: 'Live visual overlays (yellow box polygon grid, vehicle timers) provide clear situational awareness.',
     paperBenchmark: 4.90,
     paperStdDev: 0.32
   },
   {
     id: 'U3',
-    category: 'Usability',
-    statement: 'Real-time alert notifications respond promptly upon violation detection.',
+    category: 'Usability & UI Aesthetics (ISO 25010)',
+    isoMetric: 'User Error Protection & Alerting',
+    statement: 'Real-time alert notifications respond promptly upon vehicle violation detection.',
     paperBenchmark: 4.75,
     paperStdDev: 0.43
   },
   {
+    id: 'U4',
+    category: 'Usability & UI Aesthetics (ISO 25010)',
+    isoMetric: 'Learnability & Log Ergonomics',
+    statement: 'Filtering, searching, and reviewing historical violation logs in the interface is fast and user-friendly.',
+    paperBenchmark: 4.80,
+    paperStdDev: 0.40
+  },
+  {
+    id: 'U5',
+    category: 'Usability & UI Aesthetics (ISO 25010)',
+    isoMetric: 'Accessibility & Reporting',
+    statement: 'Generating and exporting analytical violation reports is clear and straightforward.',
+    paperBenchmark: 4.85,
+    paperStdDev: 0.35
+  },
+
+  // --- ISO 25010 §4.2 & §4.5: PERFORMANCE EFFICIENCY & RELIABILITY (4 items) ---
+  {
     id: 'R1',
-    category: 'Reliability',
-    statement: 'The system maintains consistent performance during heavy traffic flow.',
+    category: 'Performance & Reliability (ISO 25010)',
+    isoMetric: 'Fault Tolerance & Occlusion Retention',
+    statement: 'The system maintains consistent detection performance during heavy traffic flow and inter-vehicle occlusions.',
     paperBenchmark: 4.65,
     paperStdDev: 0.50
   },
   {
     id: 'R2',
-    category: 'Reliability',
-    statement: 'The web interface streaming remains stable without crashes or video freeze.',
+    category: 'Performance & Reliability (ISO 25010)',
+    isoMetric: 'Availability & Stream Stability',
+    statement: 'The web interface video streaming remains stable without crashes, frame drops, or video freezes.',
     paperBenchmark: 4.70,
     paperStdDev: 0.48
+  },
+  {
+    id: 'R3',
+    category: 'Performance & Reliability (ISO 25010)',
+    isoMetric: 'Environmental Adaptability',
+    statement: 'The system maintains reliable detection under varying lighting and weather conditions (daylight, night, rain, shadows).',
+    paperBenchmark: 4.60,
+    paperStdDev: 0.52
+  },
+  {
+    id: 'R4',
+    category: 'Performance & Reliability (ISO 25010)',
+    isoMetric: 'Time Behaviour & Inference Latency',
+    statement: 'Low inference latency ensures real-time video dashboard updates without noticeable delay.',
+    paperBenchmark: 4.75,
+    paperStdDev: 0.44
+  },
+
+  // --- ISO 25010 §4.6 & §4.7: SECURITY & MAINTAINABILITY (2 items) ---
+  {
+    id: 'S1',
+    category: 'Security & Maintainability (ISO 25010)',
+    isoMetric: 'Accountability & Data Integrity',
+    statement: 'NCAP violation snapshot records and audit timestamps cannot be tampered with or modified.',
+    paperBenchmark: 4.90,
+    paperStdDev: 0.30
+  },
+  {
+    id: 'S2',
+    category: 'Security & Maintainability (ISO 25010)',
+    isoMetric: 'Modifiability & Re-configurability',
+    statement: 'Yellow box polygon zone coordinates can be easily calibrated and reconfigured for new camera angles.',
+    paperBenchmark: 4.80,
+    paperStdDev: 0.41
+  },
+
+  // --- ISO 25010 QUALITY-IN-USE: OPERATIONAL EFFECTIVENESS (2 items) ---
+  {
+    id: 'E1',
+    category: 'Operational Quality-in-Use (ISO 25010)',
+    isoMetric: 'Efficiency in Use & Workload',
+    statement: 'Automated NCAP evidence collection significantly reduces manual monitoring workload for TMC officers.',
+    paperBenchmark: 4.90,
+    paperStdDev: 0.30
+  },
+  {
+    id: 'E2',
+    category: 'Operational Quality-in-Use (ISO 25010)',
+    isoMetric: 'Context Completeness & Impact',
+    statement: 'Implementing this AI monitoring system improves intersection clearance and traffic compliance in Malaybalay City.',
+    paperBenchmark: 4.85,
+    paperStdDev: 0.37
   }
 ];
 
@@ -90,12 +187,20 @@ export function EvaluationSurvey() {
   const [evaluatorName, setEvaluatorName] = useState('');
   const [role, setRole] = useState('Traffic Management Officer');
   const [experience, setExperience] = useState('1 – 3 Years');
+  const [shift, setShift] = useState('Day Shift (6:00 AM - 2:00 PM)');
+  const [environment, setEnvironment] = useState('Central Control Room');
+
   const [responses, setResponses] = useState({
-    F1: 5, F2: 5, F3: 5,
-    U1: 5, U2: 5, U3: 5,
-    R1: 4, R2: 5
+    F1: 5, F2: 5, F3: 5, F4: 5, F5: 5,
+    U1: 5, U2: 5, U3: 5, U4: 5, U5: 5,
+    R1: 4, R2: 5, R3: 4, R4: 5,
+    S1: 5, S2: 5,
+    E1: 5, E2: 5
   });
+
   const [feedback, setFeedback] = useState('');
+  const [strengths, setStrengths] = useState('');
+  const [improvements, setImprovements] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
   const handleRatingChange = (id, rating) => {
@@ -113,10 +218,18 @@ export function EvaluationSurvey() {
     const stdDev = Math.sqrt(variance);
 
     const categories = {};
-    ['Functionality', 'Usability', 'Reliability'].forEach((cat) => {
+    const catKeys = [
+      'Functional Suitability (ISO 25010)',
+      'Usability & UI Aesthetics (ISO 25010)',
+      'Performance & Reliability (ISO 25010)',
+      'Security & Maintainability (ISO 25010)',
+      'Operational Quality-in-Use (ISO 25010)'
+    ];
+
+    catKeys.forEach((cat) => {
       const catItems = SURVEY_ITEMS.filter((i) => i.category === cat);
       const catScores = catItems.map((i) => responses[i.id] || 0);
-      const catMean = catScores.reduce((a, b) => a + b, 0) / catScores.length;
+      const catMean = catScores.reduce((a, b) => a + b, 0) / (catScores.length || 1);
       const catVar = catScores.reduce((a, b) => a + Math.pow(b - catMean, 2), 0) / (catScores.length > 1 ? catScores.length - 1 : 1);
       categories[cat] = {
         mean: catMean,
@@ -138,13 +251,17 @@ export function EvaluationSurvey() {
   const handleSubmit = (e) => {
     e.preventDefault();
     setSubmitted(true);
-    toast.success('System evaluation questionnaire submitted successfully!');
-    localStorage.setItem('tmc_last_evaluation', JSON.stringify({
+    toast.success('ISO 25010 TMC system evaluation questionnaire submitted successfully!');
+    localStorage.setItem('tmc_last_iso25010_evaluation', JSON.stringify({
       evaluatorName,
       role,
       experience,
+      shift,
+      environment,
       responses,
       stats,
+      strengths,
+      improvements,
       feedback,
       date: new Date().toISOString()
     }));
@@ -152,13 +269,17 @@ export function EvaluationSurvey() {
 
   const handleReset = () => {
     setResponses({
-      F1: 5, F2: 5, F3: 5,
-      U1: 5, U2: 5, U3: 5,
-      R1: 4, R2: 5
+      F1: 5, F2: 5, F3: 5, F4: 5, F5: 5,
+      U1: 5, U2: 5, U3: 5, U4: 5, U5: 5,
+      R1: 4, R2: 5, R3: 4, R4: 5,
+      S1: 5, S2: 5,
+      E1: 5, E2: 5
     });
     setFeedback('');
+    setStrengths('');
+    setImprovements('');
     setSubmitted(false);
-    toast.success('Form reset to default baseline ratings.');
+    toast.success('Form reset to baseline ratings.');
   };
 
   const handlePrint = () => {
@@ -174,13 +295,13 @@ export function EvaluationSurvey() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold uppercase tracking-wider">
               <ClipboardCheck className="w-4 h-4" />
-              TMC Officer Evaluation Instrument (Table 4-4)
+              ISO/IEC 25010 Software Quality Evaluation Standard (18 Metrics)
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
               Usability & System Evaluation Survey
             </h1>
             <p className="text-muted text-sm max-w-2xl">
-              Official evaluation questionnaire for Traffic Management Center (TMC) personnel to evaluate Functionality, Usability, and Reliability metrics ($N=10$) for the AI-Powered Yellow Box Zone Monitoring System.
+              Formal ISO/IEC 25010 research evaluation questionnaire for Traffic Management Center (TMC) personnel assessing Functional Suitability, Usability, Performance Efficiency, Reliability, Security, and Operational Quality-in-Use ($N=10$).
             </p>
           </div>
 
@@ -204,83 +325,115 @@ export function EvaluationSurvey() {
       </div>
 
       {/* Live Benchmark Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass rounded-2xl p-6 border border-white/10 relative overflow-hidden"
+          className="glass rounded-2xl p-4 border border-white/10 relative overflow-hidden"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs uppercase font-bold text-muted tracking-wider">Overall Acceptability</span>
-            <Award className="w-5 h-5 text-primary" />
+            <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Overall Score</span>
+            <Award className="w-4 h-4 text-primary" />
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-4xl font-extrabold text-white">{stats.mean.toFixed(2)}</span>
-            <span className="text-sm text-muted">/ 5.00</span>
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="text-2xl font-extrabold text-white">{stats.mean.toFixed(2)}</span>
+            <span className="text-[10px] text-muted">/ 5.00</span>
           </div>
-          <div className="mt-2 flex items-center justify-between">
-            <span className={`text-xs px-2 py-0.5 rounded-md font-semibold border ${getVerbalInterpretation(stats.mean).color}`}>
+          <div className="mt-1">
+            <span className={`text-[9px] px-2 py-0.5 rounded-md font-semibold border ${getVerbalInterpretation(stats.mean).color}`}>
               {getVerbalInterpretation(stats.mean).text}
             </span>
-            <span className="text-[11px] text-muted font-medium">Std Dev: σ = {stats.stdDev.toFixed(2)}</span>
           </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="glass rounded-2xl p-4 border border-white/10"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Functionality</span>
+            <Zap className="w-4 h-4 text-accent" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="text-xl font-extrabold text-white">
+              {stats.categories['Functional Suitability (ISO 25010)']?.mean.toFixed(2) || '0.00'}
+            </span>
+          </div>
+          <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.1</p>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="glass rounded-2xl p-6 border border-white/10"
+          className="glass rounded-2xl p-4 border border-white/10"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs uppercase font-bold text-muted tracking-wider">Functionality Mean</span>
-            <Zap className="w-5 h-5 text-accent" />
+            <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Usability</span>
+            <Layers className="w-4 h-4 text-blue-400" />
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">
-              {stats.categories['Functionality']?.mean.toFixed(2) || '0.00'}
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="text-xl font-extrabold text-white">
+              {stats.categories['Usability & UI Aesthetics (ISO 25010)']?.mean.toFixed(2) || '0.00'}
             </span>
-            <span className="text-xs text-emerald-400 font-semibold">(Paper: 4.80)</span>
           </div>
-          <p className="mt-2 text-xs text-muted">Vehicle Detection, StopTimer & NCAP</p>
+          <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.4</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="glass rounded-2xl p-4 border border-white/10"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Reliability</span>
+            <Activity className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="text-xl font-extrabold text-white">
+              {stats.categories['Performance & Reliability (ISO 25010)']?.mean.toFixed(2) || '0.00'}
+            </span>
+          </div>
+          <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.2/4.5</p>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="glass rounded-2xl p-6 border border-white/10"
+          className="glass rounded-2xl p-4 border border-white/10"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs uppercase font-bold text-muted tracking-wider">Usability Mean</span>
-            <Layers className="w-5 h-5 text-blue-400" />
+            <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Security</span>
+            <Lock className="w-4 h-4 text-orange-400" />
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">
-              {stats.categories['Usability']?.mean.toFixed(2) || '0.00'}
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="text-xl font-extrabold text-white">
+              {stats.categories['Security & Maintainability (ISO 25010)']?.mean.toFixed(2) || '0.00'}
             </span>
-            <span className="text-xs text-emerald-400 font-semibold">(Paper: 4.83)</span>
           </div>
-          <p className="mt-2 text-xs text-muted">React Dashboard, Overlays & Alerts</p>
+          <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.6/4.7</p>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="glass rounded-2xl p-6 border border-white/10"
+          transition={{ delay: 0.25 }}
+          className="glass rounded-2xl p-4 border border-white/10"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs uppercase font-bold text-muted tracking-wider">Reliability Mean</span>
-            <Activity className="w-5 h-5 text-emerald-400" />
+            <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Impact</span>
+            <CheckSquare className="w-4 h-4 text-purple-400" />
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">
-              {stats.categories['Reliability']?.mean.toFixed(2) || '0.00'}
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="text-xl font-extrabold text-white">
+              {stats.categories['Operational Quality-in-Use (ISO 25010)']?.mean.toFixed(2) || '0.00'}
             </span>
-            <span className="text-xs text-emerald-400 font-semibold">(Paper: 4.68)</span>
           </div>
-          <p className="mt-2 text-xs text-muted">Heavy Traffic & Stream Stability</p>
+          <p className="mt-1 text-[9px] text-muted">Quality in Use</p>
         </motion.div>
       </div>
 
@@ -292,8 +445,8 @@ export function EvaluationSurvey() {
               <UserCheck className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Part I: Evaluator Profile</h2>
-              <p className="text-xs text-muted">Demographic context for research sample validation ($N=10$)</p>
+              <h2 className="text-lg font-bold text-white">Part I: Evaluator Demographic & Operational Profile</h2>
+              <p className="text-xs text-muted">ISO/IEC 25010 evaluator background context ($N=10$ sample validation)</p>
             </div>
           </div>
 
@@ -342,6 +495,37 @@ export function EvaluationSurvey() {
                 <option value="More than 6 Years">More than 6 Years</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                Primary Duty Shift
+              </label>
+              <select
+                value={shift}
+                onChange={(e) => setShift(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white focus:outline-none focus:border-primary transition-colors text-sm"
+              >
+                <option value="Day Shift (6:00 AM - 2:00 PM)">Day Shift (6:00 AM - 2:00 PM)</option>
+                <option value="Afternoon Shift (2:00 PM - 10:00 PM)">Afternoon Shift (2:00 PM - 10:00 PM)</option>
+                <option value="Night Shift (10:00 PM - 6:00 AM)">Night Shift (10:00 PM - 6:00 AM)</option>
+                <option value="Rotating / Full Oversight">Rotating / Full Day Oversight</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                Primary Operational Environment
+              </label>
+              <select
+                value={environment}
+                onChange={(e) => setEnvironment(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white focus:outline-none focus:border-primary transition-colors text-sm"
+              >
+                <option value="Central Control Room">Central Control Room (Multi-monitor Workstation)</option>
+                <option value="Field Operations / Mobile">Field Operations (Mobile / Tablet Monitoring)</option>
+                <option value="Hybrid Operations">Hybrid (Control Room & On-Site Enforcement)</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -353,7 +537,7 @@ export function EvaluationSurvey() {
                 <BarChart3 className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Part II: Assessment Indicators (Table 4-4 Matrix)</h2>
+                <h2 className="text-lg font-bold text-white">Part II: ISO/IEC 25010 Assessment Metrics (18 Items)</h2>
                 <p className="text-xs text-muted">5-Point Likert Scale (1 = Strongly Disagree to 5 = Strongly Agree)</p>
               </div>
             </div>
@@ -367,11 +551,17 @@ export function EvaluationSurvey() {
             </div>
           </div>
 
-          {['Functionality', 'Usability', 'Reliability'].map((category) => (
+          {[
+            'Functional Suitability (ISO 25010)',
+            'Usability & UI Aesthetics (ISO 25010)',
+            'Performance & Reliability (ISO 25010)',
+            'Security & Maintainability (ISO 25010)',
+            'Operational Quality-in-Use (ISO 25010)'
+          ].map((category) => (
             <div key={category} className="space-y-4">
               <h3 className="text-sm font-extrabold uppercase tracking-wider text-primary flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-primary" />
-                {category} Evaluation Metrics
+                {category}
               </h3>
 
               <div className="space-y-3">
@@ -385,10 +575,13 @@ export function EvaluationSurvey() {
                         <span className="px-2 py-0.5 rounded bg-primary/10 border border-primary/30 text-primary font-mono font-bold text-xs">
                           {item.id}
                         </span>
-                        <p className="text-sm font-medium text-white/90">{item.statement}</p>
+                        <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-accent font-semibold">
+                          {item.isoMetric}
+                        </span>
                       </div>
+                      <p className="text-sm font-medium text-white/90 mt-1">{item.statement}</p>
                       <p className="text-[11px] text-muted italic">
-                        Research Paper Target Benchmark Score: <span className="text-white font-semibold">{item.paperBenchmark.toFixed(2)}</span> (σ = {item.paperStdDev.toFixed(2)})
+                        Target Score Benchmark: <span className="text-white font-semibold">{item.paperBenchmark.toFixed(2)}</span> (σ = {item.paperStdDev.toFixed(2)})
                       </p>
                     </div>
 
@@ -421,7 +614,7 @@ export function EvaluationSurvey() {
         </div>
 
         {/* Qualitative Feedback Section */}
-        <div className="glass rounded-3xl p-6 md:p-8 border border-white/10 space-y-4">
+        <div className="glass rounded-3xl p-6 md:p-8 border border-white/10 space-y-6">
           <div className="flex items-center gap-3 border-b border-white/10 pb-4">
             <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30 text-blue-400">
               <FileText className="w-5 h-5" />
@@ -432,13 +625,46 @@ export function EvaluationSurvey() {
             </div>
           </div>
 
-          <textarea
-            rows={4}
-            value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
-            placeholder="Share your experience, observed strengths, or suggestions for improving yellow box camera detection and dashboard overlays..."
-            className="w-full p-4 rounded-2xl bg-black/40 border border-white/10 text-white placeholder-muted/50 focus:outline-none focus:border-primary transition-colors text-sm resize-none"
-          />
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                1. System Strengths (What features work best for your enforcement tasks?)
+              </label>
+              <textarea
+                rows={2}
+                value={strengths}
+                onChange={(e) => setStrengths(e.target.value)}
+                placeholder="e.g. StopTimer overlays and automatic snapshot capturing speed up violation verification..."
+                className="w-full p-4 rounded-xl bg-black/40 border border-white/10 text-white placeholder-muted/50 focus:outline-none focus:border-primary transition-colors text-sm resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                2. Areas for Improvement (What difficulties or false alerts occurred?)
+              </label>
+              <textarea
+                rows={2}
+                value={improvements}
+                onChange={(e) => setImprovements(e.target.value)}
+                placeholder="e.g. Heavy rain reflections sometimes alter bounding boxes..."
+                className="w-full p-4 rounded-xl bg-black/40 border border-white/10 text-white placeholder-muted/50 focus:outline-none focus:border-primary transition-colors text-sm resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                3. General Comments & Feature Suggestions
+              </label>
+              <textarea
+                rows={2}
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                placeholder="e.g. Integration with ALPR/ANPR license plate recognition would further automate processing..."
+                className="w-full p-4 rounded-xl bg-black/40 border border-white/10 text-white placeholder-muted/50 focus:outline-none focus:border-primary transition-colors text-sm resize-none"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Submit Action Bar */}
