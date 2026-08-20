@@ -62,10 +62,14 @@ function App() {
   return (
     <Router>
       <Toaster position="top-right" toastOptions={{
+        className: 'cursor-pointer select-none hover:opacity-90 transition-opacity',
         style: {
           background: '#18181b',
           color: '#fff',
           border: '1px solid rgba(255,255,255,0.1)',
+          cursor: 'pointer',
+          padding: '12px 16px',
+          borderRadius: '16px',
         }
       }} />
       <AppLayout />

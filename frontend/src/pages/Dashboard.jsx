@@ -110,16 +110,59 @@ export function Dashboard() {
           });
           if (res.data.update && isMounted) {
             playAlertSound();
-            toast.error("🚨 YELLOW BOX STOP-TIME VIOLATION DETECTED!", {
-              duration: 5000,
-              icon: '⚠️',
-              style: {
-                background: '#18181b',
-                color: '#ef4444',
-                border: '1px solid rgba(239,68,68,0.3)',
-                fontWeight: 'bold'
-              }
-            });
+            
+            // Fetch updated violations list to get latest details
+            try {
+              const latestRes = await axios.get(`${API_BASE}/api/recent_violations`);
+              const latestList = latestRes.data || [];
+              setViolations(latestList);
+              const latestViolation = latestList.length > 0 ? latestList[0] : null;
+
+              toast.custom((t) => (
+                <div
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    if (latestViolation) {
+                      setSelectedViolation(latestViolation);
+                    } else {
+                      window.location.href = '/logs';
+                    }
+                  }}
+                  className={`${
+                    t.visible ? 'animate-enter opacity-100 scale-100' : 'animate-leave opacity-0 scale-95'
+                  } max-w-md w-full bg-zinc-950/95 backdrop-blur-2xl border-2 border-red-500/70 shadow-[0_0_35px_rgba(239,68,68,0.4)] rounded-2xl p-4 flex items-center justify-between gap-4 cursor-pointer hover:border-red-400 hover:scale-[1.03] transition-all group pointer-events-auto select-none`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center border border-red-500/40 group-hover:bg-red-500 group-hover:text-black transition-colors shrink-0">
+                      <AlertTriangle className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-black uppercase tracking-wider text-red-400">
+                          🚨 Violation Detected!
+                        </p>
+                        <span className="text-[9px] font-extrabold px-2 py-0.5 rounded bg-red-500/20 border border-red-500/40 text-red-200">
+                          Click to View
+                        </span>
+                      </div>
+                      <p className="text-xs font-bold text-white mt-0.5">
+                        {latestViolation ? `${latestViolation.label.toUpperCase()} (${latestViolation.stop_duration}s stop time)` : 'Yellow Box Stop-Time Violation'}
+                      </p>
+                      <p className="text-[11px] text-muted group-hover:text-primary transition-colors flex items-center gap-1 mt-0.5">
+                        <span>Click popup to inspect NCAP evidence snapshot</span>
+                        <ExternalLink className="w-3 h-3 text-primary" />
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ), {
+                duration: 8000,
+                position: 'top-right'
+              });
+            } catch (err) {
+              console.error("Error fetching latest violation for toast:", err);
+            }
+
             await fetchData();
           }
         } catch (error) {
