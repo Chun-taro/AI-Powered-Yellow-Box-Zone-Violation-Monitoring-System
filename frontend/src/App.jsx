@@ -8,6 +8,7 @@ import { Landing } from './pages/Landing';
 import { ViolationLogs } from './pages/ViolationLogs';
 import { Login } from './pages/Login';
 import { SystemCompatibility } from './pages/SystemCompatibility';
+import { EvaluationSurvey } from './pages/EvaluationSurvey';
 import { PrivateRoute } from './components/PrivateRoute';
 import { Menu } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
@@ -49,6 +50,7 @@ function AppLayout() {
           <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
           <Route path="/setup" element={<PrivateRoute><ZoneSetup /></PrivateRoute>} />
           <Route path="/compatibility" element={<PrivateRoute><SystemCompatibility /></PrivateRoute>} />
+          <Route path="/evaluation" element={<PrivateRoute><EvaluationSurvey /></PrivateRoute>} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       </main>

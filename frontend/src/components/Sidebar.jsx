@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, Settings, History, Camera, X, Home, LogOut, Cpu } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, History, Camera, X, Home, LogOut, Cpu, ClipboardCheck } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Cookies from 'js-cookie';
@@ -10,6 +10,7 @@ const navItems = [
   { icon: FileText, label: 'Analytics', path: '/reports' },
   { icon: Settings, label: 'Zone Setup', path: '/setup' },
   { icon: Cpu, label: 'System Status', path: '/compatibility' },
+  { icon: ClipboardCheck, label: 'System Evaluation', path: '/evaluation' },
 ];
 
 export function Sidebar({ isOpen, onClose }) {
