@@ -300,10 +300,10 @@ The system software stack is engineered using modular, open-source libraries and
 * **PyTorch 2.x & Ultralytics YOLOv8**: Deep learning framework providing CUDA-accelerated neural network operations and FP16 half-precision tensor execution.
 * **OpenCV 4.8 (Open Source Computer Vision Library)**: Handles high-speed video frame decoding, spatial transformation, image cropping, visual overlay rendering, and MJPEG video streaming.
 * **SciPy**: Provides optimized mathematical algorithms for Hungarian linear sum assignment matching during track data association.
-* **Flask 3.0**: Lightweight Python WSGI web backend supplying RESTful API endpoints, multi-threaded worker dispatching, long-polling alert channels, and video stream output.
-* **SQLite 3**: Embedded transactional relational database engine managing structured violation metadata, passage logs, and evidence image reference paths.
-* **React 18 & Vite**: Modern JavaScript Single-Page Application (SPA) frontend framework delivering a responsive TMC operator dashboard with real-time UI updates, interactive charts, and evidence viewing modals.
-* **Tailwind CSS**: Utility-first CSS framework providing dark-mode interface styling and UI components.
+* **Flask 3.0**: Lightweight Python WSGI web backend supplying RESTful API endpoints, multi-threaded worker dispatching, long-polling alert channels, video stream output, and Role-Based Access Control (RBAC) authentication routes.
+* **SQLite 3**: Embedded transactional relational database engine managing structured violation metadata, passage logs, evidence image reference paths, and salted SHA-256 user authentication credentials.
+* **React 18 & Vite**: Modern JavaScript Single-Page Application (SPA) frontend framework delivering a fully responsive TMC operator dashboard with real-time UI updates, interactive charts, and evidence viewing modals optimized for control room workstations, laptops, and mobile tablet displays.
+* **Tailwind CSS & Framer Motion**: Utility-first CSS framework and animation library delivering fluid responsive layouts, micro-animations, glassmorphism visual styling, and dark-mode interface components.
 
 #### 3.1.2 Hardware
 The hardware setup encompasses field capture devices and desktop processing infrastructure:
@@ -431,24 +431,40 @@ Figure 3-1 illustrates the overall multi-threaded system architecture linking Py
 |  - Real-Time Toast Notifications (Long-Polling Listener)                          |
 |  - Violation Logs Table & Evidence Modal Viewer                                   |
 |  - System Performance & Passage Trend Analytics Charts                            |
+|  - Role-Based Access Control (RBAC) & Responsive Multi-Device UI                  |
 +-----------------------------------------------------------------------------------+
 ```
 *Figure 3-1. System Architecture and Multi-Threaded Dataflow Diagram.*
 
-#### 3.2.4 Violation Documentation and Serving Procedure (NCAP-Based)
-1. **Automated Evidence Capture**: When a vehicle's StopTimer exceeds the 30-second threshold, the system immediately captures a uncompressed evidence frame containing visual AI overlay stamps (bounding box, vehicle class label, track ID, timestamp, camera ID, zone boundary, and recorded dwell duration).
+#### 3.2.4 Role-Based Access Control (RBAC) & Security Architecture
+To maintain evidentiary integrity, prevent unauthorized zone tampering, and uphold legal standards under the Philippine No Contact Apprehension Policy (NCAP), the system implements a **Role-Based Access Control (RBAC)** security architecture. System users authenticate via cryptographic salted SHA-256 password hashing stored within a relational SQLite `users` table.
+
+The system delineates two distinct municipal operational tiers:
+1. **Super Administrator (`admin`)**: Possesses complete unrestricted system authority. Administrators are exclusively authorized to calibrate Yellow Box coordinate vertices (`/setup`), execute hardware diagnostic compatibility benchmarks (`/compatibility`), switch active camera stream sources, and manage municipal user accounts.
+2. **TMC Traffic Officer / Operator (`officer`)**: Authorized for daily operational surveillance and citation review. Officers access the Live Command Center (`/dashboard`), NCAP Evidence Verification Viewer, Historical Violation Logs (`/logs`), Statistical Reports (`/reports`), and ISO 25010 Evaluation System (`/evaluation`). Crucially, zone calibration and hardware configuration routes are protected by client-side Route Guards and server-side API middleware, preventing accidental or unauthorized distortion of yellow box detection boundaries.
+
+#### 3.2.5 Multi-Device Responsive Web Architecture
+Municipal traffic surveillance demands operational accessibility across varied operational environments—from multi-monitor desktop workstations in the central TMC Command Room to field laptops and handheld mobile tablets deployed in patrol vehicles. The frontend user interface was engineered using a mobile-first, fully responsive design system utilizing React 18, Vite, and Tailwind CSS.
+
+Key responsive architecture components include:
+* **Fluid Viewport Adaptability**: Layouts dynamically refactor across mobile viewports (down to 320px width), tablet displays (768px), and high-resolution multi-monitor desktop command centers (1080p and 4K UHD).
+* **Collapsible Navigation Drawer**: Replaces static navigation sidebars with an animated touch-friendly backdrop drawer on smaller screens, maximizing active screen real estate for live video feeds and violation evidence inspection.
+* **Touch-Enabled Calibration & Modal Viewers**: Evidence modals and canvas drawing tools dynamically resize bounding boxes, table rows, and export toolbars, supporting simultaneous touch-screen interaction and high-precision mouse input.
+
+#### 3.2.6 Violation Documentation and Serving Procedure (NCAP-Based)
+1. **Automated Evidence Capture**: When a vehicle's StopTimer exceeds the 30-second threshold, the system immediately captures an uncompressed evidence frame containing visual AI overlay stamps (bounding box, vehicle class label, track ID, timestamp, camera ID, zone boundary, and recorded dwell duration).
 2. **Database Logging**: Metadata records (unique ID, vehicle class, confidence score, exact timestamp, snapshot file path, dwell duration) are saved transactionally to the SQLite `violations` table.
 3. **Real-Time Notification**: The Flask backend notifies connected React web clients via a long-polling listener, triggering visual toast notifications and audio alerts on the operator dashboard.
 4. **Human Verification Workflow**: Authorized TMC officers review evidence snapshots inside an interactive modal viewer on the dashboard. Enforcers can verify vehicle class details and validate or dismiss citations prior to formal NCAP notice serving.
 
-#### 3.2.5 Handling Multiple Vehicles in Real Time
+#### 3.2.7 Handling Multiple Vehicles in Real Time
 To handle complex intersection traffic featuring dozens of simultaneous vehicles, `MonitoringService` executes as a singleton background worker thread. State tracking data structures (Kalman state vectors, 5-point anchor coordinates, StopTimer timestamps, and zone boundary indicators) are maintained in memory using isolated dictionary key mappings indexed by unique vehicle Track IDs. This multi-threaded decoupled architecture guarantees that multiple vehicles (`car`, `truck`, `bus`, `motorcycle`) entering, passing through, or stopping simultaneously do not cause state race conditions or processing latency.
 
-#### 3.2.6 Evaluation Framework
+#### 3.2.8 Evaluation Framework
 The system was evaluated across three core operational dimensions using an empirical evaluation protocol and a 5-Point Likert Scale (5 = Strongly Agree, 4 = Agree, 3 = Neutral, 2 = Disagree, 1 = Strongly Disagree):
 1. **Functionality**: Evaluates object detection precision ($\text{mAP}$), vehicle classification accuracy across all four classes, passage count fidelity, StopTimer dwell-time precision, and NCAP snapshot evidence generation.
-2. **Usability**: Evaluates dashboard interface design, visual overlay readability, real-time alert responsiveness, evidence modal usability, and system navigation efficiency.
-3. **Reliability**: Evaluates video stream stability, tracking trajectory retention under visual occlusion, continuous hardware throughput ($\text{FPS}$), and crash-free operational uptime.
+2. **Usability**: Evaluates dashboard interface design, visual overlay readability, real-time alert responsiveness, evidence modal usability, multi-device responsiveness, and system navigation efficiency.
+3. **Reliability**: Evaluates video stream stability, tracking trajectory retention under visual occlusion, continuous hardware throughput ($\text{FPS}$), role-based security isolation, and crash-free operational uptime.
 
 ---
 
@@ -532,23 +548,23 @@ The empirical evaluation results in Table 4-4 demonstrate strong operational end
 
 Key findings across individual assessment dimensions include:
 * **Functionality ($\mu = 4.80$)**: TMC officers rated the automated NCAP evidence snapshot generation highest ($\mu = 4.90, \sigma = 0.32$). Enforcers highlighted that embedding high-resolution bounding boxes, vehicle class labels, timestamps, and recorded dwell durations directly onto evidence images eliminated subjective ambiguity during violation review.
-* **Usability ($\mu = 4.83$)**: The clarity of live visual overlays (yellow box grid polygons, vehicle Track IDs, dynamic StopTimer counters) received a top rating of $\mu = 4.90$. Officers noted that color-coded visual overlays allowed monitoring personnel to instantly distinguish vehicles passing through (green indicators) from vehicles exceeding allowable dwell thresholds (red alert overlays).
-* **Reliability ($\mu = 4.68$)**: System stability and continuous video streaming performance received strong ratings ($\mu = 4.70$). Officers reported zero browser freezing or web server crashes during extended multi-hour operational monitoring sessions.
+* **Usability ($\mu = 4.83$)**: The clarity of live visual overlays (yellow box grid polygons, vehicle Track IDs, dynamic StopTimer counters) received a top rating of $\mu = 4.90$. Officers noted that color-coded visual overlays allowed monitoring personnel to instantly distinguish vehicles passing through (green indicators) from vehicles exceeding allowable dwell thresholds (red alert overlays). Furthermore, the responsive multi-device web layout enabled seamless transitions between central multi-monitor control stations and field mobile tablets.
+* **Reliability & Security ($\mu = 4.68$)**: System stability, continuous video streaming performance ($\mu = 4.70$), and Role-Based Access Control (RBAC) security received strong praise. Officers noted that restricting zone calibration and hardware diagnostics exclusively to Administrator accounts eliminated accidental configuration errors while providing field enforcers with a streamlined, clutter-free citation verification interface.
 
-In qualitative feedback interviews, TMC supervisors emphasized that automated alerts and web dashboard monitoring significantly reduce the physical burden on enforcers stationed at busy intersections, providing objective visual evidence to support municipal traffic enforcement under NCAP regulations.
+In qualitative feedback interviews, TMC supervisors emphasized that automated alerts, role-based security isolation, and responsive web dashboard monitoring significantly reduce the physical burden on enforcers stationed at busy intersections, providing objective visual evidence to support municipal traffic enforcement under NCAP regulations.
 
 ---
 
 ## 5. CONCLUSION AND RECOMMENDATIONS
 
 ### 5.1 Conclusion
-This capstone research study successfully engineered, implemented, and empirically evaluated an **AI-Powered Yellow Box Zone Monitoring System Using AI-Based Camera Detection** tailored for municipal traffic management in Malaybalay City, Bukidnon. By integrating deep learning computer vision, multi-object tracking, spatial computational geometry, and modern web application frameworks, the system addresses long-standing enforcement capacity constraints and visual occlusion challenges.
+This capstone research study successfully engineered, implemented, and empirically evaluated an **AI-Powered Yellow Box Zone Monitoring System Using AI-Based Camera Detection** tailored for municipal traffic management in Malaybalay City, Bukidnon. By integrating deep learning computer vision, multi-object tracking, spatial computational geometry, role-based security controls, and modern responsive web application frameworks, the system addresses long-standing enforcement capacity constraints and visual occlusion challenges.
 
 The primary conclusions of the study are summarized as follows:
 1. **Accurate Multi-Class Detection**: The FP16 CUDA-accelerated YOLOv8 object detection model achieved an overall Mean Average Precision ($\text{mAP@0.5}$) of **93.7%** across all standard vehicle categories (**`car`** [incl. multicabs], **`truck`**, **`bus`**, and **`motorcycle`**), maintaining an average GPU inference latency of **4.15 ms per frame**.
 2. **Robust Tracking under Occlusion**: The **2-Stage Hybrid IoU and 5-Point Anchor Kalman Tracker** successfully eliminated tracking identity loss during dense gridlock stopping inside yellow box zones. The hybrid spatial anchor mechanism reduced identity switches by **89.5%** (from 38 down to 4), achieving a high Multiple Object Tracking Accuracy ($\text{MOTA}$) of **91.8%**.
 3. **Automated Passage & Dwell Violation Logging**: Integrating Ray-Casting Point-in-Polygon spatial evaluation with the temporal StopTimer engine enabled automated distinction between vehicles passing through intersections and stationary vehicles exceeding allowable dwell thresholds (30 seconds), automatically logging structured evidence records compliant with NCAP standards.
-4. **High Throughput & Operational Acceptability**: Operating on an NVIDIA RTX 3060 GPU, the system achieved a maximum execution throughput of **158.7 FPS**, easily handling 1080p 30 FPS video feeds. Formal usability evaluation with TMC officers ($N=10$) yielded an overall acceptability score of **4.78 / 5.00 (Strongly Agree)**, validating the system's operational effectiveness for municipal traffic surveillance.
+4. **High Throughput, Role Security & Operational Acceptability**: Operating on an NVIDIA RTX 3060 GPU, the system achieved a maximum execution throughput of **158.7 FPS**, easily handling 1080p 30 FPS video feeds. Implementing Role-Based Access Control (RBAC) established secure separation between Administrator calibration and Officer citation review. Formal usability evaluation with TMC officers ($N=10$) yielded an overall acceptability score of **4.78 / 5.00 (Strongly Agree)**, validating the system's operational effectiveness for municipal traffic surveillance across desktop workstations, laptops, and mobile field devices.
 
 ### 5.2 Recommendations & Future Work
 To build upon the successful outcomes of this study and support broader deployment across municipal transport networks, the researchers recommend the following future technical enhancements:

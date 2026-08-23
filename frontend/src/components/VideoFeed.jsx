@@ -11,39 +11,35 @@ export function VideoFeed({ src, title = "Live Monitoring", stats = {} }) {
 
   return (
     <div 
-      className="glass rounded-3xl overflow-hidden relative group"
+      className="glass rounded-2xl sm:rounded-3xl overflow-hidden relative group w-full"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="absolute inset-x-0 top-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="flex items-center gap-6">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
+      <div className="absolute inset-x-0 top-0 p-2.5 sm:p-4 flex flex-wrap justify-between items-center z-10 bg-gradient-to-b from-black/90 via-black/60 to-transparent opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity gap-2">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-6">
+          <h3 className="font-semibold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 text-white">
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            {title}
+            <span className="truncate">{title}</span>
           </h3>
           
-          <div className="flex items-center gap-4 border-l border-white/10 pl-6">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-muted uppercase tracking-tight">People</span>
-              <span className="text-xs font-bold text-accent">{stats.person_count || 0}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-muted uppercase tracking-tight">Vehicles</span>
+          <div className="flex items-center gap-2 sm:gap-4 border-l border-white/10 pl-2 sm:pl-4">
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <span className="text-[9px] sm:text-[10px] font-bold text-muted uppercase tracking-tight hidden xs:inline">Vehicles</span>
               <span className="text-xs font-bold text-primary">{stats.vehicle_count || 0}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-muted uppercase tracking-tight">AI Speed</span>
-              <span className="text-xs font-bold text-emerald-400">{stats.fps_ai || 0} FPS</span>
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <span className="text-[9px] sm:text-[10px] font-bold text-muted uppercase tracking-tight hidden xs:inline">FPS</span>
+              <span className="text-xs font-bold text-emerald-400">{stats.fps_ai || 0}</span>
             </div>
           </div>
         </div>
         
-        <div className="flex gap-2">
-          <button onClick={refreshFeed} className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
-            <RefreshCw className="w-4 h-4" />
+        <div className="flex gap-1.5 sm:gap-2 shrink-0">
+          <button onClick={refreshFeed} className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors" title="Refresh Camera Feed">
+            <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
           </button>
-          <button className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
-            <Maximize2 className="w-4 h-4" />
+          <button className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors hidden sm:block" title="Maximize View">
+            <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
           </button>
         </div>
       </div>

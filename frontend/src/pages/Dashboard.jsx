@@ -203,17 +203,17 @@ export function Dashboard() {
 
 
   return (
-    <div className="space-y-4 max-w-[1400px] mx-auto">
-      <header className="flex justify-between items-center">
+    <div className="space-y-4 sm:space-y-6 max-w-[1400px] mx-auto w-full">
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black tracking-tight flex items-center gap-2 text-white">
-            TMC Malaybalay <span className="text-primary font-bold text-lg">• Live Command Center</span>
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight flex flex-wrap items-center gap-2 text-white">
+            TMC Malaybalay <span className="text-primary font-bold text-base sm:text-lg">• Live Command Center</span>
           </h2>
-          <p className="text-muted text-xs">AI-Powered Yellow Box Zone Intersection Monitoring & Enforcement</p>
+          <p className="text-muted text-xs mt-0.5">AI-Powered Yellow Box Zone Intersection Monitoring & Enforcement</p>
         </div>
-        <div className="flex gap-3 items-center">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-muted uppercase tracking-widest">Input Source</span>
+            <span className="text-[10px] font-bold text-muted uppercase tracking-widest hidden sm:inline">Source</span>
             <select
               value={showCustomSource ? 'custom' : cameraConfig.camera_source}
               onChange={(e) => {
@@ -225,11 +225,11 @@ export function Dashboard() {
                 }
               }}
               disabled={isUpdatingSource}
-              className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold outline-none focus:border-accent/50 transition-colors cursor-pointer disabled:opacity-50 text-white"
+              className="bg-zinc-900 border border-white/10 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs font-bold outline-none focus:border-accent/50 transition-colors cursor-pointer disabled:opacity-50 text-white max-w-[180px] sm:max-w-none"
             >
-              <option value="0" className="bg-zinc-900 text-white">Default Camera (Index 0)</option>
-              <option value="1" className="bg-zinc-900 text-white">Secondary Camera (Index 1)</option>
-              <option value="2" className="bg-zinc-900 text-white">Third Camera (Index 2)</option>
+              <option value="0" className="bg-zinc-900 text-white">Camera 0 (Default)</option>
+              <option value="1" className="bg-zinc-900 text-white">Camera 1 (Secondary)</option>
+              <option value="2" className="bg-zinc-900 text-white">Camera 2 (Third)</option>
               
               {testVideos.map(video => (
                 <option key={video} value={`camera/${video}`} className="bg-zinc-900 text-white">
@@ -252,51 +252,51 @@ export function Dashboard() {
             />
             <label
               htmlFor="video-upload"
-              className={`flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-white/10 rounded-xl text-xs font-bold cursor-pointer hover:border-accent/50 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 bg-zinc-900 border border-white/10 rounded-xl text-xs font-bold cursor-pointer hover:border-accent/50 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <Upload className={`w-3.5 h-3.5 ${isUploading ? 'animate-bounce' : ''}`} />
-              {isUploading ? 'UPLOADING...' : 'UPLOAD TEST VIDEO'}
+              <span className="hidden sm:inline">{isUploading ? 'UPLOADING...' : 'UPLOAD TEST VIDEO'}</span>
+              <span className="sm:hidden">{isUploading ? '...' : 'UPLOAD'}</span>
             </label>
           </div>
 
           {showCustomSource && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <input
                 type="text"
                 placeholder="rtsp://admin:password@ip:port/..."
                 value={customSource}
                 onChange={(e) => setCustomSource(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSourceChange(customSource)}
-                className="bg-zinc-900 border border-white/10 rounded-xl px-4 py-1.5 text-xs font-medium w-64 outline-none focus:border-accent/50 text-white"
+                className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-1.5 text-xs font-medium w-full sm:w-64 outline-none focus:border-accent/50 text-white"
               />
               <button
                 onClick={() => handleSourceChange(customSource)}
                 disabled={isUpdatingSource || !customSource}
-                className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-[10px] font-bold rounded-xl transition-all disabled:opacity-50"
+                className="px-3 sm:px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-[10px] font-bold rounded-xl transition-all disabled:opacity-50 shrink-0"
               >
                 CONNECT
               </button>
             </div>
           )}
 
-          <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+          <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold shrink-0">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             {isUpdatingSource ? 'SWITCHING...' : 'AI ACTIVE'}
           </div>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
         {/* Main Feed + Stats */}
-        <div className="lg:col-span-9 space-y-4">
+        <div className="lg:col-span-8 xl:col-span-9 space-y-4">
           <VideoFeed 
             src={`${API_BASE}/video_feed`} 
-            className="h-[600px] lg:h-[680px]" 
             stats={realtimeStats}
           />
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <StatCard
               title="Total Violations"
               value={loading ? '—' : stats.total_violations}
@@ -319,17 +319,17 @@ export function Dashboard() {
         </div>
 
         {/* Live Alerts */}
-        <div className="lg:col-span-3">
-          <div className="glass p-6 rounded-[2.5rem] h-[680px] flex flex-col border border-white/5">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-white/90">Live Alerts</h3>
+        <div className="lg:col-span-4 xl:col-span-3">
+          <div className="glass p-4 sm:p-6 rounded-3xl lg:rounded-[2.5rem] h-[450px] lg:h-[620px] xl:h-[680px] flex flex-col border border-white/5">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
+              <h3 className="text-base sm:text-lg font-bold text-white/90">Live Alerts</h3>
               <div className="px-3 py-1 bg-accent/10 border border-accent/20 rounded-full">
                 <span className="text-[10px] font-bold text-accent uppercase tracking-wider">
                   {violations.length} recent
                 </span>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+            <div className="flex-1 overflow-y-auto pr-1 sm:pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
               <ViolationList
                 violations={violations}
                 onViewImage={setSelectedViolation}
@@ -342,7 +342,7 @@ export function Dashboard() {
       {/* Evidence Modal */}
       <AnimatePresence>
         {selectedViolation && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -354,15 +354,15 @@ export function Dashboard() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-4xl glass rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/10"
+              className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto glass rounded-3xl lg:rounded-[2.5rem] shadow-2xl border border-white/10"
             >
               <div className="flex flex-col lg:flex-row h-full">
                 {/* Image */}
-                <div className="lg:flex-1 bg-black/40 flex items-center justify-center min-h-[360px]">
+                <div className="lg:flex-1 bg-black/40 flex items-center justify-center min-h-[240px] sm:min-h-[360px] p-2">
                   <img
                     src={`${API_BASE}/${selectedViolation.image_path}`}
                     alt="Violation Evidence"
-                    className="max-w-full max-h-full object-contain"
+                    className="max-w-full max-h-[50vh] lg:max-h-full object-contain rounded-2xl"
                     onError={(e) => {
                       e.target.src = "https://via.placeholder.com/1280x720/1a1a1a/ffffff?text=Evidence+Not+Available";
                     }}
@@ -370,7 +370,7 @@ export function Dashboard() {
                 </div>
 
                 {/* Details */}
-                <div className="w-full lg:w-72 p-8 flex flex-col border-t lg:border-t-0 lg:border-l border-white/10">
+                <div className="w-full lg:w-80 p-5 sm:p-8 flex flex-col border-t lg:border-t-0 lg:border-l border-white/10">
                   <div className="flex justify-between items-start mb-6">
                     <div>
                       <h4 className="text-[10px] font-bold text-accent uppercase tracking-widest mb-1">Violation Details</h4>

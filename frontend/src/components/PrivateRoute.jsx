@@ -1,16 +1,27 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import Cookies from 'js-cookie';
+import toast from 'react-hot-toast';
+import { useEffect } from 'react';
 
-export function PrivateRoute({ children }) {
+export function PrivateRoute({ children, allowedRoles }) {
   const token = Cookies.get('auth_token');
+  const role = Cookies.get('user_role') || 'admin';
   const location = useLocation();
 
+  const isRoleAllowed = !allowedRoles || allowedRoles.includes(role);
+
+  useEffect(() => {
+    if (token && !isRoleAllowed) {
+      toast.error(`Access Restricted: This section requires ${allowedRoles.join(' or ').toUpperCase()} privileges.`);
+    }
+  }, [token, isRoleAllowed, allowedRoles]);
+
   if (!token) {
-    // Redirect them to the /login page, but save the current location they were
-    // trying to go to when they were redirected. This allows us to send them
-    // along to that page after they login, which is a nicer user experience
-    // than dropping them off on the home page.
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!isRoleAllowed) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;

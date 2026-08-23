@@ -74,7 +74,8 @@ Please evaluate each metric based on your actual operational experience with the
 | **U2** | Operability | Live visual overlays (yellow box polygon grid, vehicle timers, bounding boxes) provide clear situational awareness. | [ ] | [ ] | [ ] | [ ] | [ ] |
 | **U3** | Error Protection | Real-time alert notifications respond promptly upon vehicle violation detection. | [ ] | [ ] | [ ] | [ ] | [ ] |
 | **U4** | Learnability | Filtering, searching, and reviewing historical violation logs in the web interface is fast and user-friendly. | [ ] | [ ] | [ ] | [ ] | [ ] |
-| **U5** | Accessibility | Generating and exporting analytical violation reports (daily/weekly trends) is clear and straightforward. | [ ] | [ ] | [ ] | [ ] | [ ] |
+| **U5** | Multi-Device Responsiveness | The user interface adapts smoothly and remains fully operational across desktop monitors, laptops, and mobile/tablet field devices. | [ ] | [ ] | [ ] | [ ] | [ ] |
+| **U6** | Accessibility | Generating and exporting analytical violation reports (Excel, CSV, PDF) is clear and straightforward. | [ ] | [ ] | [ ] | [ ] | [ ] |
 
 #### Category 3: Performance Efficiency & Reliability (ISO/IEC 25010 §4.2 & §4.5)
 *Evaluates time behavior, resource utilization, maturity, availability, and fault tolerance.*
@@ -87,12 +88,13 @@ Please evaluate each metric based on your actual operational experience with the
 | **R4** | Time Behaviour | Low inference latency ensures real-time video dashboard updates without noticeable delay. | [ ] | [ ] | [ ] | [ ] | [ ] |
 
 #### Category 4: Security & Maintainability (ISO/IEC 25010 §4.6 & §4.7)
-*Evaluates information integrity, accountability, modifiability, and re-configurability.*
+*Evaluates information integrity, access control, accountability, modifiability, and re-configurability.*
 
 | # | ISO Metric | Specific Assessment Indicator | 5 (SA) | 4 (A) | 3 (N) | 2 (D) | 1 (SD) |
 | :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **S1** | Data Integrity | NCAP violation snapshot records and audit timestamps cannot be tampered with or modified. | [ ] | [ ] | [ ] | [ ] | [ ] |
-| **S2** | Modifiability | Yellow box polygon zone coordinates can be easily calibrated and reconfigured for new camera angles. | [ ] | [ ] | [ ] | [ ] | [ ] |
+| **S1** | Access Control (RBAC) | Role-Based Access Control securely separates Administrator calibration tasks from Officer citation review duties. | [ ] | [ ] | [ ] | [ ] | [ ] |
+| **S2** | Data Integrity | NCAP violation snapshot records and audit timestamps cannot be tampered with or modified. | [ ] | [ ] | [ ] | [ ] | [ ] |
+| **S3** | Modifiability | Yellow box polygon zone coordinates can be easily calibrated and reconfigured by authorized Administrators. | [ ] | [ ] | [ ] | [ ] | [ ] |
 
 #### Category 5: Operational Quality-in-Use (ISO/IEC 25010 Quality in Use)
 *Evaluates effectiveness, efficiency, freedom from risk, and context coverage in actual enforcement operations.*

@@ -392,42 +392,42 @@ export function Reports() {
   })).sort((a, b) => b.value - a.value);
 
   return (
-    <div className="space-y-8 max-w-[1400px] mx-auto pb-12">
-      <header className="flex justify-between items-end">
+    <div className="space-y-6 max-w-[1400px] mx-auto pb-12 w-full">
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Analytics & Reports</h2>
-          <p className="text-muted mt-1">Detailed breakdown of traffic violations and trends</p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytics & Reports</h2>
+          <p className="text-muted text-xs sm:text-sm mt-0.5">Detailed breakdown of traffic violations and trends</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
           <button 
             onClick={() => {
               setPendingExportType('EXCEL');
               setShowRangeModal(true);
             }}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm font-bold text-emerald-400"
+            className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-xs sm:text-sm font-bold text-emerald-400 shrink-0"
           >
             <FileSpreadsheet className="w-4 h-4" />
-            Export Excel (.xls)
+            <span className="hidden sm:inline">Export</span> Excel (.xls)
           </button>
           <button 
             onClick={() => {
               setPendingExportType('CSV');
               setShowRangeModal(true);
             }}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm font-bold text-blue-400"
+            className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-xs sm:text-sm font-bold text-blue-400 shrink-0"
           >
             <FileSpreadsheet className="w-4 h-4" />
-            Export CSV
+            <span className="hidden sm:inline">Export</span> CSV
           </button>
           <button 
             onClick={() => {
               setPendingExportType('PDF');
               setShowRangeModal(true);
             }}
-            className="btn-primary px-6 py-2.5 rounded-2xl flex items-center gap-2 text-sm font-bold"
+            className="btn-primary px-4 sm:px-6 py-2.5 rounded-2xl flex items-center gap-2 text-xs sm:text-sm font-bold shrink-0"
           >
             <Download className="w-4 h-4" />
-            Export PDF Report
+            <span className="hidden sm:inline">Export</span> PDF Report
           </button>
         </div>
       </header>
@@ -435,7 +435,7 @@ export function Reports() {
       {/* Date Range Modal */}
       <AnimatePresence>
         {showRangeModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -447,43 +447,43 @@ export function Reports() {
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md glass p-8 rounded-[2.5rem] shadow-2xl border border-white/10"
+              className="relative w-full max-w-md glass p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-2xl border border-white/10"
             >
-              <h3 className="text-2xl font-bold mb-2">Select Export Period</h3>
-              <p className="text-muted text-sm mb-8">Choose the date range for your {pendingExportType} report.</p>
+              <h3 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Select Export Period</h3>
+              <p className="text-muted text-xs sm:text-sm mb-6 sm:mb-8">Choose the date range for your {pendingExportType} report.</p>
               
-              <div className="space-y-6">
-                <div className="space-y-2">
+              <div className="space-y-4 sm:space-y-6">
+                <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Start Date</label>
                   <input 
                     type="date" 
                     value={dateRange.start}
                     onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm outline-none focus:border-accent/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 sm:py-4 text-sm outline-none focus:border-accent/50 transition-colors text-white"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">End Date</label>
                   <input 
                     type="date" 
                     value={dateRange.end}
                     onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm outline-none focus:border-accent/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 sm:py-4 text-sm outline-none focus:border-accent/50 transition-colors text-white"
                   />
                 </div>
               </div>
 
-              <div className="mt-10 flex gap-4">
+              <div className="mt-8 flex gap-3 sm:gap-4">
                 <button 
                   onClick={() => setShowRangeModal(false)}
-                  className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 font-bold transition-all text-sm"
+                  className="flex-1 py-3.5 sm:py-4 rounded-2xl bg-white/5 hover:bg-white/10 font-bold transition-all text-xs sm:text-sm"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleExport}
                   disabled={isExporting}
-                  className="flex-1 py-4 rounded-2xl bg-accent hover:bg-accent/90 shadow-lg shadow-accent/20 font-bold transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 py-3.5 sm:py-4 rounded-2xl bg-accent hover:bg-accent/90 shadow-lg shadow-accent/20 font-bold transition-all text-xs sm:text-sm disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isExporting ? (
                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -496,7 +496,7 @@ export function Reports() {
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <StatCard title="Daily Peak" value={`${trendData.reduce((max, p) => p.violations > max ? p.violations : max, 0)} Violations`} icon={TrendingUp} color="primary" />
         <StatCard title="Most Common" value={pieData[0]?.name || "N/A"} icon={PieIcon} color="warning" />
         <StatCard title="Saved Videos" value={stats.saved_videos} icon={Film} color="accent" />
@@ -504,21 +504,21 @@ export function Reports() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-8 glass p-8 rounded-[2.5rem] min-h-[450px] flex items-center justify-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8">
+          <div className="lg:col-span-8 glass p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] min-h-[350px] sm:min-h-[450px] flex items-center justify-center">
             <div className="flex flex-col items-center gap-3 text-muted">
               <div className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
               <p className="text-sm font-medium">Loading chart data...</p>
             </div>
           </div>
-          <div className="lg:col-span-4 glass p-8 rounded-[2.5rem] min-h-[450px] flex items-center justify-center">
+          <div className="lg:col-span-4 glass p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] min-h-[350px] sm:min-h-[450px] flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8">
           {/* Main Trend Chart */}
-          <div className="lg:col-span-8 glass p-8 rounded-[2.5rem] min-h-[450px]">
+          <div className="lg:col-span-8 glass p-5 sm:p-8 rounded-3xl sm:rounded-[2.5rem] min-h-[380px] sm:min-h-[450px]">
           <div className="flex justify-between items-center mb-10">
             <h3 className="text-xl font-bold">Violation Frequency</h3>
             <select className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none">

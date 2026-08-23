@@ -49,42 +49,42 @@ export function ViolationLogs() {
   };
 
   return (
-    <div className="space-y-8 max-w-[1400px] mx-auto pb-12">
-      <header className="flex justify-between items-end">
+    <div className="space-y-6 max-w-[1400px] mx-auto pb-12 w-full">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Violation History</h2>
-          <p className="text-muted mt-1">Full database of captured parking violations</p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Violation History</h2>
+          <p className="text-muted text-xs sm:text-sm mt-0.5">Full database of captured yellow box stop-time violations</p>
         </div>
-        <div className="flex gap-4">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-none">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
             <input 
               type="text" 
-              placeholder="Search by vehicle or date..."
+              placeholder="Search vehicle, plate, date..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-2xl pl-11 pr-4 py-2.5 outline-none focus:border-accent/50 transition-colors w-64 text-sm"
+              className="bg-white/5 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 outline-none focus:border-accent/50 transition-colors w-full sm:w-72 text-sm"
             />
           </div>
-          <button className="btn-secondary px-6 py-2.5 rounded-2xl flex items-center gap-2 border-white/10">
+          <button className="btn-secondary px-5 py-2.5 rounded-2xl flex items-center gap-2 border-white/10 text-sm font-semibold shrink-0">
             <Filter className="w-4 h-4" />
             Filter
           </button>
         </div>
       </header>
 
-      <div className="glass rounded-[2rem] overflow-hidden border-white/5">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+      <div className="glass rounded-2xl sm:rounded-[2rem] overflow-hidden border-white/5 shadow-xl">
+        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-white/10">
+          <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr className="bg-white/[0.02] border-b border-white/5">
-                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted">Evidence</th>
-                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted">Vehicle Class</th>
-                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted">Color</th>
-                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted">Plate No.</th>
-                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted">Location</th>
-                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted">Timestamp</th>
-                <th className="px-6 py-5 text-xs font-bold uppercase tracking-wider text-muted text-right">Action</th>
+                <th className="px-4 sm:px-6 py-4 sm:py-5 text-xs font-bold uppercase tracking-wider text-muted">Evidence</th>
+                <th className="px-4 sm:px-6 py-4 sm:py-5 text-xs font-bold uppercase tracking-wider text-muted">Vehicle Class</th>
+                <th className="px-4 sm:px-6 py-4 sm:py-5 text-xs font-bold uppercase tracking-wider text-muted">Color</th>
+                <th className="px-4 sm:px-6 py-4 sm:py-5 text-xs font-bold uppercase tracking-wider text-muted">Plate No.</th>
+                <th className="px-4 sm:px-6 py-4 sm:py-5 text-xs font-bold uppercase tracking-wider text-muted">Location</th>
+                <th className="px-4 sm:px-6 py-4 sm:py-5 text-xs font-bold uppercase tracking-wider text-muted">Timestamp</th>
+                <th className="px-4 sm:px-6 py-4 sm:py-5 text-xs font-bold uppercase tracking-wider text-muted text-right">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -157,56 +157,56 @@ export function ViolationLogs() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-8 bg-black/90 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/90 backdrop-blur-sm"
             onClick={() => setSelectedViolation(null)}
           >
              <motion.div 
                initial={{ scale: 0.9, opacity: 0 }}
                animate={{ scale: 1, opacity: 1 }}
                exit={{ scale: 0.9, opacity: 0 }}
-               className="relative max-w-5xl w-full glass rounded-[2.5rem] overflow-hidden border-white/10 shadow-2xl"
+               className="relative max-w-5xl w-full max-h-[90vh] overflow-y-auto glass rounded-3xl sm:rounded-[2.5rem] border border-white/10 shadow-2xl"
                onClick={(e) => e.stopPropagation()}
              >
-                <div className="absolute top-6 right-6 z-10">
+                <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
                    <button 
                     onClick={() => setSelectedViolation(null)}
-                    className="w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center text-white transition-colors"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/70 hover:bg-black flex items-center justify-center text-white transition-colors border border-white/10"
                    >
                      ✕
                    </button>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12">
-                   <div className="lg:col-span-8 bg-black">
+                   <div className="lg:col-span-8 bg-black flex items-center justify-center min-h-[220px] sm:min-h-[360px] p-2">
                       <img 
                         src={`${API_BASE}/${selectedViolation.image_path}`} 
-                        className="w-full h-auto object-contain" 
+                        className="max-w-full max-h-[50vh] lg:max-h-[70vh] object-contain rounded-xl" 
                         alt="Evidence"
                       />
                    </div>
-                   <div className="lg:col-span-4 p-8 space-y-8 self-center">
+                   <div className="lg:col-span-4 p-5 sm:p-8 space-y-6 self-center border-t lg:border-t-0 lg:border-l border-white/10">
                       <div>
-                        <h3 className="text-2xl font-bold mb-2">Violation Details</h3>
-                        <p className="text-muted text-sm italic">Captured on Automated AI Intercept</p>
+                        <h3 className="text-xl sm:text-2xl font-bold mb-1">Violation Details</h3>
+                        <p className="text-muted text-xs italic">Captured on Automated AI Intercept</p>
                       </div>
 
-                      <div className="space-y-4">
-                         <div className="flex justify-between items-center py-3 border-b border-white/5">
-                            <span className="text-sm text-muted flex items-center gap-2"><Clock className="w-4 h-4" /> Timestamp</span>
-                            <span className="text-sm font-bold">{selectedViolation.timestamp}</span>
+                      <div className="space-y-3 sm:space-y-4">
+                         <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                            <span className="text-xs sm:text-sm text-muted flex items-center gap-2"><Clock className="w-4 h-4" /> Timestamp</span>
+                            <span className="text-xs sm:text-sm font-bold truncate max-w-[160px]">{selectedViolation.timestamp}</span>
                          </div>
-                         <div className="flex justify-between items-center py-3 border-b border-white/5">
-                            <span className="text-sm text-muted flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Violation Type</span>
-                            <span className="text-sm font-bold text-red-400 capitalize">{selectedViolation.label}</span>
+                         <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                            <span className="text-xs sm:text-sm text-muted flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Type</span>
+                            <span className="text-xs sm:text-sm font-bold text-red-400 capitalize">{selectedViolation.label}</span>
                          </div>
-                         <div className="flex justify-between items-center py-3 border-b border-white/5">
-                            <span className="text-sm text-muted flex items-center gap-2"><Eye className="w-4 h-4" /> Confidence</span>
-                            <span className="text-sm font-bold">{selectedViolation.confidence ? (selectedViolation.confidence * 100).toFixed(1) : '0'}%</span>
+                         <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                            <span className="text-xs sm:text-sm text-muted flex items-center gap-2"><Eye className="w-4 h-4" /> Confidence</span>
+                            <span className="text-xs sm:text-sm font-bold">{selectedViolation.confidence ? (selectedViolation.confidence * 100).toFixed(1) : '0'}%</span>
                          </div>
                          {selectedViolation.plate_number && (
-                           <div className="flex justify-between items-center py-3 border-b border-white/5">
-                              <span className="text-sm text-muted flex items-center gap-2">Plate Number</span>
-                              <span className="text-xs font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded border border-emerald-400/20">
+                           <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                              <span className="text-xs sm:text-sm text-muted">Plate No.</span>
+                              <span className="text-xs font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">
                                   {selectedViolation.plate_number}
                               </span>
                            </div>
@@ -215,9 +215,9 @@ export function ViolationLogs() {
 
                       <button 
                         onClick={() => downloadImage(selectedViolation.image_path)}
-                        className="w-full bg-accent hover:bg-accent/90 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all"
+                        className="w-full bg-accent hover:bg-accent/90 text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 text-sm transition-all shadow-lg shadow-accent/20"
                       >
-                         <Download className="w-5 h-5" />
+                         <Download className="w-4 h-4" />
                          Download Evidence
                       </button>
                    </div>

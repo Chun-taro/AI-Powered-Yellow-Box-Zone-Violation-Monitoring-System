@@ -10,8 +10,9 @@ import { Login } from './pages/Login';
 import { SystemCompatibility } from './pages/SystemCompatibility';
 import { EvaluationSurvey } from './pages/EvaluationSurvey';
 import { PrivateRoute } from './components/PrivateRoute';
-import { Menu } from 'lucide-react';
+import { Menu, Shield } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
+import Cookies from 'js-cookie';
 
 // Create a layout component to conditionally render Sidebar and Header
 function AppLayout() {
@@ -20,37 +21,61 @@ function AppLayout() {
   const isPublicPage = ['/', '/login'].includes(location.pathname);
   const showSidebarAndHeader = !isPublicPage;
 
+  const userRole = Cookies.get('user_role') || 'admin';
+  const roleDisplayNames = {
+    admin: { label: 'Admin', icon: '👑', color: 'bg-amber-400/15 text-amber-300 border-amber-400/30' },
+    officer: { label: 'TMC Officer', icon: '👮', color: 'bg-blue-400/15 text-blue-300 border-blue-400/30' }
+  };
+  const activeRole = roleDisplayNames[userRole] || roleDisplayNames.officer;
+
   return (
     <div className="min-h-screen bg-background text-white selection:bg-accent/30 overflow-x-hidden">
       {showSidebarAndHeader && <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />}
       
       {/* Top Header with Toggle - Hide on Login and Landing */}
       {showSidebarAndHeader && (
-        <header className="fixed top-0 left-0 right-0 h-16 glass-header flex items-center px-6 z-40">
-          <button 
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 hover:bg-white/5 rounded-xl transition-colors group"
-          >
-            <Menu className="w-6 h-6 text-muted group-hover:text-white" />
-          </button>
-          <div className="ml-4 h-6 w-[1px] bg-white/10" />
-          <h2 className="ml-4 font-bold tracking-tight text-white/90 flex items-center gap-2">
-            <span className="text-primary font-extrabold">TMC Malaybalay</span>
-            <span className="text-muted text-xs uppercase tracking-widest font-semibold hidden md:inline">| Yellow Box Zone AI Monitor</span>
-          </h2>
+        <header className="fixed top-0 left-0 right-0 h-16 glass-header flex items-center justify-between px-3 sm:px-6 z-40">
+          <div className="flex items-center min-w-0">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 hover:bg-white/5 rounded-xl transition-colors group shrink-0 cursor-pointer"
+              aria-label="Open Navigation Menu"
+            >
+              <Menu className="w-6 h-6 text-muted group-hover:text-white" />
+            </button>
+            <div className="ml-2 sm:ml-4 h-6 w-[1px] bg-white/10 shrink-0" />
+            <h2 className="ml-2 sm:ml-4 font-bold tracking-tight text-white/90 flex items-center gap-2 truncate text-sm sm:text-base">
+              <span className="text-primary font-extrabold shrink-0">TMC Malaybalay</span>
+              <span className="text-muted text-xs uppercase tracking-widest font-semibold hidden md:inline truncate">| Yellow Box Zone AI Monitor</span>
+            </h2>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {/* Active Role Tag */}
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] sm:text-xs font-bold shrink-0 ${activeRole.color}`}>
+              <span>{activeRole.icon}</span>
+              <span>{activeRole.label}</span>
+            </span>
+
+            {/* AI Live Status */}
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] sm:text-xs font-bold shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="hidden sm:inline">LIVE</span> AI ACTIVE
+            </span>
+          </div>
         </header>
       )}
 
-      <main className={`${showSidebarAndHeader ? 'pt-24 p-8' : ''} transition-all duration-300`}>
+      <main className={`${showSidebarAndHeader ? 'pt-20 sm:pt-24 px-3 sm:px-6 md:px-8 pb-10' : ''} transition-all duration-300 w-full`}>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/logs" element={<PrivateRoute><ViolationLogs /></PrivateRoute>} />
-          <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
-          <Route path="/setup" element={<PrivateRoute><ZoneSetup /></PrivateRoute>} />
-          <Route path="/compatibility" element={<PrivateRoute><SystemCompatibility /></PrivateRoute>} />
-          <Route path="/evaluation" element={<PrivateRoute><EvaluationSurvey /></PrivateRoute>} />
+          <Route path="/dashboard" element={<PrivateRoute allowedRoles={['admin', 'officer']}><Dashboard /></PrivateRoute>} />
+          <Route path="/logs" element={<PrivateRoute allowedRoles={['admin', 'officer']}><ViolationLogs /></PrivateRoute>} />
+          <Route path="/reports" element={<PrivateRoute allowedRoles={['admin', 'officer']}><Reports /></PrivateRoute>} />
+          <Route path="/setup" element={<PrivateRoute allowedRoles={['admin']}><ZoneSetup /></PrivateRoute>} />
+          <Route path="/compatibility" element={<PrivateRoute allowedRoles={['admin']}><SystemCompatibility /></PrivateRoute>} />
+          <Route path="/evaluation" element={<PrivateRoute allowedRoles={['admin', 'officer']}><EvaluationSurvey /></PrivateRoute>} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       </main>

@@ -4,6 +4,7 @@ setup_logging()
 from flask import Flask, request, jsonify, send_from_directory
 from routes.dashboard_routes import dashboard_bp
 from routes.api_routes import api_bp
+from routes.auth_routes import auth_bp
 import threading
 import os
 from config.config import config
@@ -17,6 +18,7 @@ app = Flask(__name__,
 CORS(app) # Enable CORS for all routes
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(api_bp, url_prefix='/api')
+app.register_blueprint(auth_bp, url_prefix='/api/auth')
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')

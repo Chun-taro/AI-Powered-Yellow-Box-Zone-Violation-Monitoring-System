@@ -307,12 +307,11 @@ export function EvaluationSurvey() {
                 Formal ISO/IEC 25010 research evaluation questionnaire for Traffic Management Center (TMC) personnel assessing Functional Suitability, Usability, Performance Efficiency, Reliability, Security, and Operational Quality-in-Use ($N=10$).
               </p>
             </div>
-
-            <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto">
               <button
                 type="button"
                 onClick={handlePrint}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-accent to-primary text-black font-extrabold text-sm transition-all duration-200 shadow-lg shadow-accent/20 hover:opacity-90 cursor-pointer"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-accent to-primary text-black font-extrabold text-xs sm:text-sm transition-all duration-200 shadow-lg shadow-accent/20 hover:opacity-90 cursor-pointer shrink-0"
               >
                 <Printer className="w-4 h-4 text-black" />
                 Print Clean Form
@@ -320,7 +319,7 @@ export function EvaluationSurvey() {
               <button
                 type="button"
                 onClick={handleReset}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl glass hover:bg-white/10 text-muted hover:text-white font-semibold text-sm transition-all duration-200 border border-white/10 cursor-pointer"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl glass hover:bg-white/10 text-muted hover:text-white font-semibold text-xs sm:text-sm transition-all duration-200 border border-white/10 cursor-pointer shrink-0"
               >
                 <RotateCcw className="w-4 h-4" />
                 Reset
@@ -330,22 +329,22 @@ export function EvaluationSurvey() {
         </div>
 
         {/* Live Benchmark Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass rounded-2xl p-4 border border-white/10 relative overflow-hidden"
+            className="glass rounded-2xl p-3 sm:p-4 border border-white/10 relative overflow-hidden"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Overall Score</span>
-              <Award className="w-4 h-4 text-primary" />
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold text-muted tracking-wider">Overall</span>
+              <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
             </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-2xl font-extrabold text-white">{stats.mean.toFixed(2)}</span>
-              <span className="text-[10px] text-muted">/ 5.00</span>
+            <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1">
+              <span className="text-xl sm:text-2xl font-extrabold text-white">{stats.mean.toFixed(2)}</span>
+              <span className="text-[9px] sm:text-[10px] text-muted">/ 5.00</span>
             </div>
             <div className="mt-1">
-              <span className={`text-[9px] px-2 py-0.5 rounded-md font-semibold border ${getVerbalInterpretation(stats.mean).color}`}>
+              <span className={`text-[8px] sm:text-[9px] px-1.5 sm:px-2 py-0.5 rounded-md font-semibold border ${getVerbalInterpretation(stats.mean).color}`}>
                 {getVerbalInterpretation(stats.mean).text}
               </span>
             </div>
@@ -355,107 +354,107 @@ export function EvaluationSurvey() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="glass rounded-2xl p-4 border border-white/10"
+            className="glass rounded-2xl p-3 sm:p-4 border border-white/10"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Functionality</span>
-              <Zap className="w-4 h-4 text-accent" />
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold text-muted tracking-wider">Function</span>
+              <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-accent" />
             </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-xl font-extrabold text-white">
+            <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1">
+              <span className="text-lg sm:text-xl font-extrabold text-white">
                 {stats.categories['Functional Suitability (ISO 25010)']?.mean.toFixed(2) || '0.00'}
               </span>
             </div>
-            <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.1</p>
+            <p className="mt-1 text-[8px] sm:text-[9px] text-muted">ISO 25010 §4.1</p>
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="glass rounded-2xl p-4 border border-white/10"
+            className="glass rounded-2xl p-3 sm:p-4 border border-white/10"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Usability</span>
-              <Layers className="w-4 h-4 text-blue-400" />
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold text-muted tracking-wider">Usability</span>
+              <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
             </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-xl font-extrabold text-white">
+            <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1">
+              <span className="text-lg sm:text-xl font-extrabold text-white">
                 {stats.categories['Usability & UI Aesthetics (ISO 25010)']?.mean.toFixed(2) || '0.00'}
               </span>
             </div>
-            <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.4</p>
+            <p className="mt-1 text-[8px] sm:text-[9px] text-muted">ISO 25010 §4.4</p>
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="glass rounded-2xl p-4 border border-white/10"
+            className="glass rounded-2xl p-3 sm:p-4 border border-white/10"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Reliability</span>
-              <Activity className="w-4 h-4 text-emerald-400" />
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold text-muted tracking-wider">Reliability</span>
+              <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
             </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-xl font-extrabold text-white">
+            <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1">
+              <span className="text-lg sm:text-xl font-extrabold text-white">
                 {stats.categories['Performance & Reliability (ISO 25010)']?.mean.toFixed(2) || '0.00'}
               </span>
             </div>
-            <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.2/4.5</p>
+            <p className="mt-1 text-[8px] sm:text-[9px] text-muted">ISO 25010 §4.2</p>
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="glass rounded-2xl p-4 border border-white/10"
+            className="glass rounded-2xl p-3 sm:p-4 border border-white/10"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Security</span>
-              <Lock className="w-4 h-4 text-orange-400" />
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold text-muted tracking-wider">Security</span>
+              <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-400" />
             </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-xl font-extrabold text-white">
+            <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1">
+              <span className="text-lg sm:text-xl font-extrabold text-white">
                 {stats.categories['Security & Maintainability (ISO 25010)']?.mean.toFixed(2) || '0.00'}
               </span>
             </div>
-            <p className="mt-1 text-[9px] text-muted">ISO 25010 §4.6/4.7</p>
+            <p className="mt-1 text-[8px] sm:text-[9px] text-muted">ISO 25010 §4.6</p>
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
-            className="glass rounded-2xl p-4 border border-white/10"
+            className="glass rounded-2xl p-3 sm:p-4 border border-white/10"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Impact</span>
-              <CheckSquare className="w-4 h-4 text-purple-400" />
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold text-muted tracking-wider">Impact</span>
+              <CheckSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
             </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-xl font-extrabold text-white">
+            <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1">
+              <span className="text-lg sm:text-xl font-extrabold text-white">
                 {stats.categories['Operational Quality-in-Use (ISO 25010)']?.mean.toFixed(2) || '0.00'}
               </span>
             </div>
-            <p className="mt-1 text-[9px] text-muted">Quality in Use</p>
+            <p className="mt-1 text-[8px] sm:text-[9px] text-muted">Quality-in-Use</p>
           </motion.div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
           {/* Evaluator Profile Section */}
-          <div className="glass rounded-3xl p-6 md:p-8 border border-white/10 space-y-6">
+          <div className="glass rounded-3xl p-5 sm:p-8 border border-white/10 space-y-6">
             <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30 text-primary">
-                <UserCheck className="w-5 h-5" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30 text-primary">
+                <UserCheck className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Part I: Evaluator Demographic & Operational Profile</h2>
-                <p className="text-xs text-muted">ISO/IEC 25010 evaluator background context ($N=10$ sample validation)</p>
+                <h2 className="text-base sm:text-lg font-bold text-white">Part I: Evaluator Profile</h2>
+                <p className="text-xs text-muted">ISO/IEC 25010 evaluator background context ($N=10$ validation)</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
               <div>
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
                   Evaluator Name / ID (Optional)
@@ -478,26 +477,27 @@ export function EvaluationSurvey() {
                   onChange={(e) => setRole(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white focus:outline-none focus:border-primary transition-colors text-sm"
                 >
-                  <option value="Traffic Management Officer">Traffic Management Officer / Enforcer</option>
-                  <option value="Camera System Operator">Surveillance & Camera System Operator</option>
-                  <option value="TMC Supervisor / IT Staff">TMC Supervisor / IT Staff</option>
-                  <option value="Research Evaluator">Research Evaluator / Guest Tester</option>
+                  <option value="Traffic Management Officer (TMC)">Traffic Management Officer (TMC)</option>
+                  <option value="Traffic Enforcer / Field Officer">Traffic Enforcer / Field Officer</option>
+                  <option value="CCTV Monitoring Specialist">CCTV Monitoring Specialist</option>
+                  <option value="Municipal Transport Administrative Officer">Municipal Transport Administrative Officer</option>
+                  <option value="IT Systems Administrator / Developer">IT Systems Administrator / Developer</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                  Enforcement Experience
+                  Experience in Traffic Operations
                 </label>
                 <select
                   value={experience}
                   onChange={(e) => setExperience(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white focus:outline-none focus:border-primary transition-colors text-sm"
                 >
-                  <option value="Less than 1 Year">Less than 1 Year</option>
-                  <option value="1 – 3 Years">1 – 3 Years</option>
-                  <option value="4 – 6 Years">4 – 6 Years</option>
-                  <option value="More than 6 Years">More than 6 Years</option>
+                  <option value="Less than 1 year">Less than 1 year</option>
+                  <option value="1 - 3 years">1 - 3 years</option>
+                  <option value="3 - 5 years">3 - 5 years</option>
+                  <option value="More than 5 years">More than 5 years</option>
                 </select>
               </div>
 
@@ -535,24 +535,24 @@ export function EvaluationSurvey() {
           </div>
 
           {/* Survey Items Matrix Section */}
-          <div className="glass rounded-3xl p-6 md:p-8 border border-white/10 space-y-8">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="glass rounded-3xl p-5 sm:p-8 border border-white/10 space-y-6 sm:space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center border border-accent/30 text-accent">
-                  <BarChart3 className="w-5 h-5" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-accent/20 flex items-center justify-center border border-accent/30 text-accent shrink-0">
+                  <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">Part II: ISO/IEC 25010 Assessment Metrics (18 Items)</h2>
+                  <h2 className="text-base sm:text-lg font-bold text-white">Part II: ISO/IEC 25010 Assessment Metrics (18 Items)</h2>
                   <p className="text-xs text-muted">5-Point Likert Scale (1 = Strongly Disagree to 5 = Strongly Agree)</p>
                 </div>
               </div>
 
-              <div className="hidden lg:flex items-center gap-2 text-xs text-muted font-medium">
-                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">1: SD</span>
-                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">2: D</span>
-                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">3: N</span>
-                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">4: A</span>
-                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">5: SA</span>
+              <div className="hidden lg:flex items-center gap-1.5 text-xs text-muted font-medium">
+                <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">1: SD</span>
+                <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">2: D</span>
+                <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">3: N</span>
+                <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">4: A</span>
+                <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">5: SA</span>
               </div>
             </div>
 
@@ -563,8 +563,8 @@ export function EvaluationSurvey() {
               'Security & Maintainability (ISO 25010)',
               'Operational Quality-in-Use (ISO 25010)'
             ].map((category) => (
-              <div key={category} className="space-y-4">
-                <h3 className="text-sm font-extrabold uppercase tracking-wider text-primary flex items-center gap-2">
+              <div key={category} className="space-y-3 sm:space-y-4">
+                <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-primary flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-primary" />
                   {category}
                 </h3>
@@ -573,7 +573,7 @@ export function EvaluationSurvey() {
                   {SURVEY_ITEMS.filter((item) => item.category === category).map((item) => (
                     <div
                       key={item.id}
-                      className="p-5 rounded-2xl bg-black/30 border border-white/5 hover:border-white/20 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                      className="p-4 sm:p-5 rounded-2xl bg-black/30 border border-white/5 hover:border-white/20 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4"
                     >
                       <div className="space-y-1 max-w-xl">
                         <div className="flex items-center gap-2">
@@ -584,13 +584,13 @@ export function EvaluationSurvey() {
                             {item.isoMetric}
                           </span>
                         </div>
-                        <p className="text-sm font-medium text-white/90 mt-1">{item.statement}</p>
-                        <p className="text-[11px] text-muted italic">
-                          Target Score Benchmark: <span className="text-white font-semibold">{item.paperBenchmark.toFixed(2)}</span> (σ = {item.paperStdDev.toFixed(2)})
+                        <p className="text-xs sm:text-sm font-medium text-white/90 mt-1">{item.statement}</p>
+                        <p className="text-[10px] sm:text-[11px] text-muted italic">
+                          Target Benchmark: <span className="text-white font-semibold">{item.paperBenchmark.toFixed(2)}</span> (σ = {item.paperStdDev.toFixed(2)})
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="grid grid-cols-5 gap-1.5 sm:flex sm:gap-2.5 w-full sm:w-auto shrink-0 pt-2 md:pt-0">
                         {LIKERT_OPTIONS.map((opt) => {
                           const isSelected = responses[item.id] === opt.value;
                           return (
@@ -598,7 +598,7 @@ export function EvaluationSurvey() {
                               key={opt.value}
                               type="button"
                               onClick={() => handleRatingChange(item.id, opt.value)}
-                              className={`w-11 h-11 rounded-xl font-bold text-sm transition-all flex flex-col items-center justify-center border cursor-pointer ${
+                              className={`h-10 sm:h-11 sm:w-11 rounded-xl font-bold text-xs sm:text-sm transition-all flex flex-col items-center justify-center border cursor-pointer ${
                                 isSelected
                                   ? 'bg-primary text-black border-primary shadow-lg shadow-primary/30 scale-105'
                                   : `bg-black/40 text-muted border-white/10 ${opt.color}`
@@ -606,7 +606,7 @@ export function EvaluationSurvey() {
                               title={opt.fullName}
                             >
                               <span>{opt.value}</span>
-                              <span className="text-[9px] opacity-75 font-normal">{opt.label}</span>
+                              <span className="text-[8px] sm:text-[9px] opacity-75 font-normal">{opt.label}</span>
                             </button>
                           );
                         })}

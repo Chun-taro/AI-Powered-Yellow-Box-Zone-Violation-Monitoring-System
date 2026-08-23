@@ -2,6 +2,15 @@ import sqlite3
 from config.config import config
 import json
 from datetime import datetime
+import hashlib
+
+AUTH_SALT = "tmc_yellow_box_salt_2026"
+
+def hash_password(password: str) -> str:
+    """Hash password securely using SHA-256 with static application salt."""
+    if not password:
+        return ""
+    return hashlib.sha256(f"{AUTH_SALT}_{password}".encode('utf-8')).hexdigest()
 
 # Determine DATABASE_PATH from config (supports dict or module), fallback to 'database.db'
 if isinstance(config, dict):
@@ -152,6 +161,18 @@ class Database:
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
             ''')
+
+            # Role-Based Users table
+            self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'officer',
+                full_name TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            ''')
             
             self.conn.commit()
             
@@ -161,6 +182,7 @@ class Database:
                 self.conn.execute('CREATE INDEX IF NOT EXISTS idx_violations_vehicle_type ON violations(vehicle_type_id)')
                 self.conn.execute('CREATE INDEX IF NOT EXISTS idx_violations_status ON violations(status)')
                 self.conn.execute('CREATE INDEX IF NOT EXISTS idx_detection_tracking_id ON detection_history(tracking_id)')
+                self.conn.execute('CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)')
                 self.conn.commit()
             except Exception as idx_error:
                 print(f"Warning: Index creation failed (non-critical): {idx_error}")
@@ -172,7 +194,7 @@ class Database:
             raise
 
     def initialize_defaults(self):
-        """Initialize default vehicle types and zone."""
+        """Initialize default vehicle types, zones, and seeded users."""
         
         # Add default vehicle types if they don't exist
         vehicle_types = ['car', 'truck', 'bus', 'motorcycle']
@@ -193,6 +215,30 @@ class Database:
             ''', ('Yellow Box Zone - Main', '[]', 1))
         except sqlite3.IntegrityError:
             pass  # Already exists
+
+        # Seed default role-based user accounts
+        default_users = [
+            ('admin', 'admin123', 'admin', 'System Administrator'),
+            ('officer', 'officer123', 'officer', 'TMC Traffic Officer'),
+            ('superadmin123', 'superadmin@123', 'admin', 'TMC Chief Administrator'),
+        ]
+        # Clean up legacy analyst account if present
+        try:
+            self.conn.execute("DELETE FROM users WHERE username = 'analyst'")
+        except Exception:
+            pass
+
+        for username, password, role, full_name in default_users:
+            try:
+                self.conn.execute('''
+                INSERT INTO users (username, password_hash, role, full_name)
+                VALUES (?, ?, ?, ?)
+                ''', (username, hash_password(password), role, full_name))
+            except sqlite3.IntegrityError:
+                # Update password hash if user exists
+                self.conn.execute('''
+                UPDATE users SET password_hash = ?, role = ?, full_name = ? WHERE username = ?
+                ''', (hash_password(password), role, full_name, username))
         
         self.conn.commit()
 
@@ -403,6 +449,98 @@ class Database:
             is_in_zone, is_stopped, frame_id, zone_id
         ))
         self.conn.commit()
+
+    def authenticate_user(self, username, password):
+        """
+        Authenticate a user by username and plaintext password.
+        Returns user dictionary if valid, None otherwise.
+        """
+        if not username or not password:
+            return None
+        
+        pwd_hash = hash_password(password)
+        cursor = self.conn.execute('''
+            SELECT id, username, role, full_name, created_at
+            FROM users
+            WHERE username = ? AND password_hash = ?
+        ''', (username.strip(), pwd_hash))
+        row = cursor.fetchone()
+        if row:
+            return {
+                'id': row['id'],
+                'username': row['username'],
+                'role': row['role'],
+                'full_name': row['full_name'],
+                'created_at': row['created_at']
+            }
+        return None
+
+    def get_user_by_username(self, username):
+        """Fetch user by username without password hash."""
+        cursor = self.conn.execute('''
+            SELECT id, username, role, full_name, created_at
+            FROM users
+            WHERE username = ?
+        ''', (username.strip(),))
+        row = cursor.fetchone()
+        if row:
+            return {
+                'id': row['id'],
+                'username': row['username'],
+                'role': row['role'],
+                'full_name': row['full_name'],
+                'created_at': row['created_at']
+            }
+        return None
+
+    def get_user_by_id(self, user_id):
+        """Fetch user by id without password hash."""
+        cursor = self.conn.execute('''
+            SELECT id, username, role, full_name, created_at
+            FROM users
+            WHERE id = ?
+        ''', (user_id,))
+        row = cursor.fetchone()
+        if row:
+            return {
+                'id': row['id'],
+                'username': row['username'],
+                'role': row['role'],
+                'full_name': row['full_name'],
+                'created_at': row['created_at']
+            }
+        return None
+
+    def list_users(self):
+        """List all registered users."""
+        cursor = self.conn.execute('''
+            SELECT id, username, role, full_name, created_at
+            FROM users
+            ORDER BY id ASC
+        ''')
+        rows = cursor.fetchall()
+        return [
+            {
+                'id': r['id'],
+                'username': r['username'],
+                'role': r['role'],
+                'full_name': r['full_name'],
+                'created_at': r['created_at']
+            }
+            for r in rows
+        ]
+
+    def create_user(self, username, password, role='officer', full_name=''):
+        """Create a new role-based user."""
+        try:
+            cursor = self.conn.execute('''
+                INSERT INTO users (username, password_hash, role, full_name)
+                VALUES (?, ?, ?, ?)
+            ''', (username.strip(), hash_password(password), role, full_name or username))
+            self.conn.commit()
+            return cursor.lastrowid
+        except sqlite3.IntegrityError:
+            return None
 
     def close(self):
         """Close database connection."""
