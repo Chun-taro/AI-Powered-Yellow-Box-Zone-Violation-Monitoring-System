@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { Shield, Lock, User, UserCheck, ShieldAlert, Sparkles, CheckCircle2 } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { 
+  Shield, Lock, User, Sparkles, Eye, EyeOff, 
+  ArrowLeft, AlertTriangle, CheckCircle2, Server, KeyRound
+} from 'lucide-react';
 import Cookies from 'js-cookie';
 import toast from 'react-hot-toast';
 
@@ -31,10 +34,22 @@ const DEMO_ACCOUNTS = [
 export function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
+  const [serverOnline, setServerOnline] = useState(true);
   const [loading, setLoading] = useState(false);
   const [shieldClicks, setShieldClicks] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const navigate = useNavigate();
+
+  // Check backend server reachability
+  useEffect(() => {
+    fetch(`${API_BASE}/api/auth/roles`)
+      .then((res) => {
+        if (res.ok) setServerOnline(true);
+      })
+      .catch(() => setServerOnline(false));
+  }, []);
 
   const handleShieldClick = () => {
     const nextCount = shieldClicks + 1;
@@ -47,6 +62,12 @@ export function Login() {
       });
     } else if (nextCount > 5) {
       setShowEasterEgg(prev => !prev);
+    }
+  };
+
+  const handleKeyCheck = (e) => {
+    if (e.getModifierState) {
+      setCapsLockOn(e.getModifierState('CapsLock'));
     }
   };
 
@@ -127,20 +148,39 @@ export function Login() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center p-4 sm:p-6 w-full">
-      {/* Background Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/20 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full pointer-events-none" />
+      {/* Background Ambient Glows */}
+      <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] bg-accent/20 blur-[130px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] bg-primary/20 blur-[130px] rounded-full pointer-events-none" />
+
+      {/* Top Header Navigation Return Link */}
+      <div className="w-full max-w-md mb-4 flex items-center justify-between z-10 px-1">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-white transition-colors group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span>Return to Public Portal</span>
+        </Link>
+
+        {/* Backend API Status Pulse Indicator */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 border border-white/10 text-[10px] font-mono">
+          <span className={`w-2 h-2 rounded-full ${serverOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+          <span className={serverOnline ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+            {serverOnline ? 'API Connected' : 'Offline Mode'}
+          </span>
+        </div>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md glass p-6 sm:p-8 rounded-3xl sm:rounded-[2rem] border border-white/10 relative z-10 shadow-2xl space-y-6"
+        className="w-full max-w-md glass p-6 sm:p-8 rounded-3xl sm:rounded-[2.2rem] border border-white/10 relative z-10 shadow-2xl space-y-6"
       >
         <div className="text-center">
           <div 
             onClick={handleShieldClick}
             className="w-14 h-14 sm:w-16 sm:h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 text-primary cursor-pointer active:scale-95 transition-transform select-none hover:bg-primary/20"
-            title="TMC Security Shield"
+            title="Click 5 times for Demo Mode"
           >
             <Shield className="w-7 h-7 sm:w-8 sm:h-8" />
           </div>
@@ -190,7 +230,7 @@ export function Login() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-[11px] sm:text-xs font-bold text-muted uppercase tracking-wider mb-1.5">
-              Username
+              Municipal Username
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -200,29 +240,49 @@ export function Login() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                onKeyDown={handleKeyCheck}
+                onKeyUp={handleKeyCheck}
                 className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 sm:py-3 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-primary/60 transition-colors"
-                placeholder="Enter username"
+                placeholder="e.g. admin or officer"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] sm:text-xs font-bold text-muted uppercase tracking-wider mb-1.5">
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[11px] sm:text-xs font-bold text-muted uppercase tracking-wider">
+                Security Password
+              </label>
+              {capsLockOn && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-bold animate-pulse">
+                  <AlertTriangle className="w-3 h-3" />
+                  CAPS LOCK ON
+                </span>
+              )}
+            </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-muted" />
               </div>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 sm:py-3 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-primary/60 transition-colors"
+                onKeyDown={handleKeyCheck}
+                onKeyUp={handleKeyCheck}
+                className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 sm:py-3 pl-10 pr-11 text-white text-sm focus:outline-none focus:border-primary/60 transition-colors"
                 placeholder="Enter password"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted hover:text-white transition-colors cursor-pointer"
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
@@ -235,12 +295,22 @@ export function Login() {
               <div className="w-5 h-5 border-2 border-slate-950/20 border-t-slate-950 rounded-full animate-spin" />
             ) : (
               <>
-                <Lock className="w-4 h-4" />
+                <KeyRound className="w-4 h-4 stroke-[2.5]" />
                 Authenticate Command Portal
               </>
             )}
           </button>
         </form>
+
+        {/* Data Privacy & Compliance Notice Footer */}
+        <div className="border-t border-white/5 pt-4 text-center space-y-1">
+          <p className="text-[10px] text-muted leading-tight">
+            Official System of the <strong className="text-white/80">TMC Malaybalay City</strong>
+          </p>
+          <p className="text-[9px] text-muted/60 leading-tight">
+            Protected under R.A. 10173 (Data Privacy Act) • Unauthorized access is prohibited.
+          </p>
+        </div>
       </motion.div>
     </div>
   );

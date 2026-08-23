@@ -575,10 +575,12 @@ class MonitoringService:
                                     pass
 
                             is_loading = (current_time - self.vehicle_loading_status.get(obj_id, 0)) < 3.0
-                            is_stopped = self.is_stopped_map.get(obj_id, False)
                             
-                            if is_stopped and not is_loading:
-                                if obj_id not in self.vehicle_timers: self.vehicle_timers[obj_id] = current_time
+                            # MODE A: Immediate & Continuous Yellow Box Zone Occupancy Dwell Timer
+                            # Starts counting immediately upon entering zone if no passenger is boarding/alighting (even if moving/rolling)
+                            if not is_loading:
+                                if obj_id not in self.vehicle_timers:
+                                    self.vehicle_timers[obj_id] = current_time
                                 elapsed = current_time - self.vehicle_timers[obj_id]
                                 if elapsed >= time_limit and obj_id not in self.violated_ids:
                                     self.violated_ids.add(obj_id)
@@ -590,6 +592,7 @@ class MonitoringService:
                                         confidence=self.vehicle_confidences.get(obj_id, 0.0)
                                     )
                             else:
+                                # Legitimate passenger boarding/alighting pauses/resets timer
                                 self.vehicle_timers.pop(obj_id, None)
                         else:
                             # Discard captured plate if vehicle leaves yellowbox without violation
