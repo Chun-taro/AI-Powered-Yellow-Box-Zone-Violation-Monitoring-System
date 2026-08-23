@@ -371,12 +371,14 @@ Collaborative consultations with administrative leadership and field enforcers f
    Input video frame tensors $\mathbf{I} \in \mathbb{R}^{H \times W \times 3}$ are normalized and cast to FP16 half-precision CUDA tensors:
    $$\mathbf{I}_{\text{fp16}} = \text{cast\_fp16}(\mathbf{I}_{\text{normalized}})$$
    YOLOv8 executes single-pass inference, generating bounding box predictions $b_i = [x_1, y_1, x_2, y_2, c, k]$ where $c$ represents class confidence score and $k \in \{\text{car}, \text{truck}, \text{bus}, \text{motorcycle}\}$. Non-Maximum Suppression (NMS) with confidence threshold $c_{\text{thres}} = 0.5$ and IoU threshold $\text{IoU}_{\text{nms}} = 0.3$ filters redundant candidate boxes.
+   > **Intuitive Panel Explanation**: *Instead of processing video frames using heavy 32-bit decimal precision, we convert them to 16-bit half-precision (FP16). This halves GPU memory usage and speeds up detection from 48 FPS to 158 FPS without losing accuracy, allowing real-time processing of high-definition intersection camera feeds.*
 
 2. **Spatial Ray-Casting Polygon Engine**:
    To evaluate whether a vehicle occupies the yellow box zone, the camera field of view is calibrated by defining an $n$-sided polygon $\mathcal{P} = \{v_1, v_2, \dots, v_n\}$ representing the yellow box pavement boundary. For a vehicle bounding box centroid $(c_x, c_y) = (\frac{x_1+x_2}{2}, \frac{y_1+y_2}{2})$, the boolean zone indicator $\mathbb{I}_{\text{zone}}(c_x, c_y)$ is evaluated via Ray-Casting edge intersection logic:
    $$\mathbb{I}_{\text{zone}}(c_x, c_y) = \bigoplus_{i=1}^{n} \left[ \Big( (y_i > c_y) \neq (y_{i+1} > c_y) \Big) \land \left( c_x < \frac{(x_{i+1} - x_i)(c_y - y_i)}{y_{i+1} - y_i} + x_i \right) \right]$$
    - *Passage State*: Triggered when a vehicle track transitions from entering ($\mathbb{I}_{\text{zone}} = \text{True}$) to exiting ($\mathbb{I}_{\text{zone}} = \text{False}$) the polygon boundary, incrementing the passage counter.
    - *Stationary State*: Evaluated continuously while $\mathbb{I}_{\text{zone}} = \text{True}$ and vehicle displacement velocity remains approximately zero ($v \approx 0$).
+   > **Intuitive Panel Explanation**: *To check if a vehicle is inside the yellow box grid, imagine shooting an invisible horizontal ray (line) from the center of the vehicle to the edge of the screen. If this ray crosses the boundary lines of the yellow box an **odd number of times**, the vehicle is INSIDE the box. If it crosses an **even number of times** (or zero), it is OUTSIDE.*
 
 3. **2-Stage Hybrid IoU and 5-Point Anchor Kalman Tracker**:
    To prevent identity loss during stopping, each active vehicle track $j$ maintains a dynamic motion state predicted via a Discrete Linear Kalman Filter:
@@ -385,12 +387,14 @@ Collaborative consultations with administrative leadership and field enforcers f
    - *Stage 2 (5-Point Spatial Anchor Fallback)*: When inter-vehicle occlusions occur during gridlock stopping (causing IoU overlap to fail), unmatched tracks transition to a 5-point spatial anchor evaluation matrix $\mathbf{P}_5(b)$ evaluating five structural points (four bounding box corners + central centroid):
      $$\mathbf{P}_5(b) = \begin{bmatrix} x_1 & y_1 \\ x_2 & y_1 \\ \frac{x_1+x_2}{2} & \frac{y_1+y_2}{2} \\ x_1 & y_2 \\ x_2 & y_2 \end{bmatrix}$$
      If the mean Euclidean anchor distance $\mathbf{D}_{\text{5pt}}(i, j) \le 150\text{ pixels}$, the match is assigned, preserving vehicle Track ID continuity across severe visual obstructions.
+   > **Intuitive Panel Explanation**: *Standard trackers lose a vehicle's ID when it stops close to another vehicle (like a truck in front of a motorcycle) because their centers overlap. The Kalman Filter continuously predicts where the vehicle is moving. If overlap happens, our system falls back to checking **5 anchor points** (the 4 corners plus the center). As long as the corners match, the system remembers the vehicle's unique ID and doesn't reset its timer.*
 
 4. **Temporal StopTimer Engine**:
    For each tracked vehicle $j$:
    - Set initial entry time $t_{\text{start}}(j) = t_{\text{current}}$ upon the first frame where $\mathbb{I}_{\text{zone}}^{(j)} = \text{True}$.
    - Accumulate stationary dwell duration $T_{\text{stop}}(j) = t_{\text{current}} - t_{\text{start}}(j)$ while the vehicle remains inside the polygon.
    - If accumulated duration $T_{\text{stop}}(j) > 30.0\text{ seconds}$, the violation engine triggers an automated high-resolution evidence capture and database event write.
+   > **Intuitive Panel Explanation**: *Once a vehicle stops inside the yellow box polygon, an individual digital stopwatch starts (`T_stop = t_current - t_start`). If the vehicle stays stationary for more than 30 seconds, the system automatically takes an NCAP violation snapshot with bounding boxes, timestamps, and metadata, saving it to the SQLite database for TMC officer review.*
 
 ##### Phase 3: System Integration Architecture
 Figure 3-1 illustrates the overall multi-threaded system architecture linking Python AI processing modules with SQLite database storage and the React web dashboard interface.
