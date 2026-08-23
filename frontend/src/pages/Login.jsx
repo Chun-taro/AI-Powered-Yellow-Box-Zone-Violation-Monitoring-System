@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Lock, User, UserCheck, ShieldAlert, Sparkles } from 'lucide-react';
+import { Shield, Lock, User, UserCheck, ShieldAlert, Sparkles, CheckCircle2 } from 'lucide-react';
 import Cookies from 'js-cookie';
 import toast from 'react-hot-toast';
 
@@ -32,7 +32,23 @@ export function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [shieldClicks, setShieldClicks] = useState(0);
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
   const navigate = useNavigate();
+
+  const handleShieldClick = () => {
+    const nextCount = shieldClicks + 1;
+    setShieldClicks(nextCount);
+    if (nextCount === 5) {
+      setShowEasterEgg(true);
+      toast.success('🛡️ Easter Egg Unlocked: Quick Demo Login Mode Activated!', {
+        icon: '🎉',
+        duration: 3500
+      });
+    } else if (nextCount > 5) {
+      setShowEasterEgg(prev => !prev);
+    }
+  };
 
   const handleLogin = async (e) => {
     if (e) e.preventDefault();
@@ -121,7 +137,11 @@ export function Login() {
         className="w-full max-w-md glass p-6 sm:p-8 rounded-3xl sm:rounded-[2rem] border border-white/10 relative z-10 shadow-2xl space-y-6"
       >
         <div className="text-center">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 text-primary">
+          <div 
+            onClick={handleShieldClick}
+            className="w-14 h-14 sm:w-16 sm:h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 text-primary cursor-pointer active:scale-95 transition-transform select-none hover:bg-primary/20"
+            title="TMC Security Shield"
+          >
             <Shield className="w-7 h-7 sm:w-8 sm:h-8" />
           </div>
           <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center justify-center gap-2">
@@ -132,30 +152,40 @@ export function Login() {
           </p>
         </div>
 
-        {/* Demo Fast-Select Role Badges */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-[11px] text-muted font-bold uppercase tracking-wider px-1">
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-accent" />
-              Quick Select Role Demo
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            {DEMO_ACCOUNTS.map((acc) => (
-              <button
-                key={acc.role}
-                type="button"
-                onClick={() => handleQuickFill(acc)}
-                className={`px-3 py-2.5 rounded-xl border text-center transition-all text-xs font-bold flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                  username === acc.username ? 'ring-2 ring-accent scale-[1.02] bg-white/15' : acc.color
-                }`}
-              >
-                <span>{acc.name}</span>
-                <span className="text-[10px] opacity-75 font-mono">{acc.username}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Easter Egg: Demo Fast-Select Role Badges (Appears after 5 clicks on shield) */}
+        <AnimatePresence>
+          {showEasterEgg && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0, y: -10 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -10 }}
+              className="space-y-2 overflow-hidden"
+            >
+              <div className="flex items-center justify-between text-[11px] text-accent font-bold uppercase tracking-wider px-1">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-accent" />
+                  Quick Select Demo (Unlocked)
+                </span>
+                <span className="text-[9px] text-muted font-normal lowercase">click shield to toggle</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                {DEMO_ACCOUNTS.map((acc) => (
+                  <button
+                    key={acc.role}
+                    type="button"
+                    onClick={() => handleQuickFill(acc)}
+                    className={`px-3 py-2.5 rounded-xl border text-center transition-all text-xs font-bold flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                      username === acc.username ? 'ring-2 ring-accent scale-[1.02] bg-white/15' : acc.color
+                    }`}
+                  >
+                    <span>{acc.name}</span>
+                    <span className="text-[10px] opacity-75 font-mono">{acc.username}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
