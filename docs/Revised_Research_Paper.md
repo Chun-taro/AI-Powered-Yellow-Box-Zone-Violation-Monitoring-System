@@ -389,12 +389,14 @@ Collaborative consultations with administrative leadership and field enforcers f
      If the mean Euclidean anchor distance $\mathbf{D}_{\text{5pt}}(i, j) \le 150\text{ pixels}$, the match is assigned, preserving vehicle Track ID continuity across severe visual obstructions.
    > **Intuitive Panel Explanation**: *Standard trackers lose a vehicle's ID when it stops close to another vehicle (like a truck in front of a motorcycle) because their centers overlap. The Kalman Filter continuously predicts where the vehicle is moving. If overlap happens, our system falls back to checking **5 anchor points** (the 4 corners plus the center). As long as the corners match, the system remembers the vehicle's unique ID and doesn't reset its timer.*
 
-4. **Temporal StopTimer Engine**:
-   For each tracked vehicle $j$:
-   - Set initial entry time $t_{\text{start}}(j) = t_{\text{current}}$ upon the first frame where $\mathbb{I}_{\text{zone}}^{(j)} = \text{True}$.
-   - Accumulate stationary dwell duration $T_{\text{stop}}(j) = t_{\text{current}} - t_{\text{start}}(j)$ while the vehicle remains inside the polygon.
-   - If accumulated duration $T_{\text{stop}}(j) > 30.0\text{ seconds}$, the violation engine triggers an automated high-resolution evidence capture and database event write.
-   > **Intuitive Panel Explanation**: *Once a vehicle stops inside the yellow box polygon, an individual digital stopwatch starts (`T_stop = t_current - t_start`). If the vehicle stays stationary for more than 30 seconds, the system automatically takes an NCAP violation snapshot with bounding boxes, timestamps, and metadata, saving it to the SQLite database for TMC officer review.*
+4. **Temporal StopTimer & Zone Occupancy Dwell Engine (Mode A)**:
+   To enforce intersection clearance under municipal traffic ordinances and prevent vehicles from lingering inside the junction, the system implements a continuous **Zone Occupancy Dwell Timer**:
+   - *Zone Entry Timestamping*: The exact moment any vehicle $j$ crosses into the yellow box polygon ($\mathbb{I}_{\text{zone}}^{(j)} = \text{True}$), the system assigns an initial entry timestamp $t_{\text{start}}(j) = t_{\text{current}}$.
+   - *Continuous Dwell Accumulation*: Dwell duration $T_{\text{dwell}}(j) = t_{\text{current}} - t_{\text{start}}(j)$ accumulates continuously from the second of entry as long as the vehicle remains within the yellow box boundaries, whether stationary, creeping, or rolling slowly.
+   - *Passenger Activity Filter*: The computer vision pipeline concurrently checks for pedestrian bounding boxes in spatial proximity to the vehicle. If legitimate passenger boarding or alighting is detected, the dwell counter is paused to prevent unwarranted citations.
+   - *Automated Violation Trigger*: If accumulated dwell time $T_{\text{dwell}}(j) > 30.0\text{ seconds}$ and no passenger activity is present, the violation engine triggers an automated high-resolution evidence capture and database transaction.
+   - *Zone Exit Reset*: When the vehicle successfully drives across and exits the yellow box within the 30-second window, its timer is cleanly purged, logging the event as a compliant passage.
+   > **Intuitive Panel Explanation**: *The moment a multicab or vehicle enters the yellow box, an individual digital stopwatch begins counting immediately (`T_dwell = t_current - t_start`). If the vehicle fails to clear the intersection and occupies the yellow box for more than 30 seconds without passengers getting in or out (even if rolling slowly or creeping in traffic), the system automatically captures an NCAP violation snapshot with bounding boxes, timestamps, and metadata, saving it directly to the SQLite database for TMC officer review.*
 
 ##### Phase 3: System Integration Architecture
 Figure 3-1 illustrates the overall multi-threaded system architecture linking Python AI processing modules with SQLite database storage and the React web dashboard interface.
@@ -409,7 +411,7 @@ Figure 3-1 illustrates the overall multi-threaded system architecture linking Py
 |                        MonitoringService (Singleton Worker Thread)                 |
 |  - Frame Extraction & YOLOv8 FP16 Multi-Class Detection (`car`,`truck`,`bus`,`moto`)|
 |  - 2-Stage Hybrid IoU & 5-Point Anchor Kalman Tracker                             |
-|  - Ray-Casting Polygon Check & StopTimer Duration Evaluation                      |
+|  - Ray-Casting Polygon Check & Mode A Zone Dwell Timer Evaluation                 |
 |  - Annotates AI Overlays (Bounding Boxes, Vehicle Labels, Zone Polygons, Timers)  |
 +-----------------------------------------------------------------------------------+
                        /                                    \
@@ -427,7 +429,7 @@ Figure 3-1 illustrates the overall multi-threaded system architecture linking Py
                        v                                  v
 +-----------------------------------------------------------------------------------+
 |                          React + Vite TMC Web Dashboard                           |
-|  - Live Video Stream Display with Visual Overlays                                 |
+|  - Live Video Stream Display with Visual Overlays & Countdown Timers              |
 |  - Real-Time Toast Notifications (Long-Polling Listener)                          |
 |  - Violation Logs Table & Evidence Modal Viewer                                   |
 |  - System Performance & Passage Trend Analytics Charts                            |
@@ -452,10 +454,10 @@ Key responsive architecture components include:
 * **Touch-Enabled Calibration & Modal Viewers**: Evidence modals and canvas drawing tools dynamically resize bounding boxes, table rows, and export toolbars, supporting simultaneous touch-screen interaction and high-precision mouse input.
 
 #### 3.2.6 Violation Documentation and Serving Procedure (NCAP-Based)
-1. **Automated Evidence Capture**: When a vehicle's StopTimer exceeds the 30-second threshold, the system immediately captures an uncompressed evidence frame containing visual AI overlay stamps (bounding box, vehicle class label, track ID, timestamp, camera ID, zone boundary, and recorded dwell duration).
+1. **Automated Evidence Capture**: When a vehicle's Mode A Zone Occupancy Dwell Timer exceeds the 30-second threshold without passenger boarding/alighting, the system immediately captures an uncompressed evidence frame containing visual AI overlay stamps (bounding box, vehicle class label, track ID, timestamp, camera ID, zone boundary, and recorded dwell duration).
 2. **Database Logging**: Metadata records (unique ID, vehicle class, confidence score, exact timestamp, snapshot file path, dwell duration) are saved transactionally to the SQLite `violations` table.
 3. **Real-Time Notification**: The Flask backend notifies connected React web clients via a long-polling listener, triggering visual toast notifications and audio alerts on the operator dashboard.
-4. **Human Verification Workflow**: Authorized TMC officers review evidence snapshots inside an interactive modal viewer on the dashboard. Enforcers can verify vehicle class details and validate or dismiss citations prior to formal NCAP notice serving.
+4. **Human Verification Workflow**: Authorized TMC officers review evidence snapshots inside an interactive modal viewer on the dashboard. Enforcers can verify vehicle class details and validate or dismiss citations prior to formal NCAP notice serving. can verify vehicle class details and validate or dismiss citations prior to formal NCAP notice serving.
 
 #### 3.2.7 Handling Multiple Vehicles in Real Time
 To handle complex intersection traffic featuring dozens of simultaneous vehicles, `MonitoringService` executes as a singleton background worker thread. State tracking data structures (Kalman state vectors, 5-point anchor coordinates, StopTimer timestamps, and zone boundary indicators) are maintained in memory using isolated dictionary key mappings indexed by unique vehicle Track IDs. This multi-threaded decoupled architecture guarantees that multiple vehicles (`car`, `truck`, `bus`, `motorcycle`) entering, passing through, or stopping simultaneously do not cause state race conditions or processing latency.
