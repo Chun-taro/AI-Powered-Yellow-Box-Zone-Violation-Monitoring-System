@@ -147,7 +147,8 @@ def api_config():
         'camera_source': config.camera_source,
         'model_path': config.MODEL_PATH,
         'confidence_threshold': config.CONFIDENCE_THRESHOLD,
-        'yellow_box_zone': config.YELLOW_BOX_ZONE
+        'yellow_box_zone': config.YELLOW_BOX_ZONE,
+        'lpr_enabled': getattr(config, 'LPR_ENABLED', True)
     })
 
 

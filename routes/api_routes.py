@@ -54,3 +54,28 @@ def get_hardware_scan():
         return jsonify(report)
     except Exception as e:
         return jsonify({'error': f'Failed to perform hardware scan: {str(e)}'}), 500
+
+@api_bp.route('/settings/lpr', methods=['GET', 'POST', 'OPTIONS'])
+def handle_lpr_settings():
+    from flask import request
+    from config.config import config
+    if request.method == 'POST':
+        data = request.json or {}
+        if 'enabled' not in data:
+            return jsonify({'error': 'Missing "enabled" boolean field'}), 400
+
+        enabled = bool(data['enabled'])
+        config.LPR_ENABLED = enabled
+        return jsonify({
+            'success': True,
+            'message': f"LPR has been {'enabled' if enabled else 'disabled'}",
+            'lpr_enabled': config.LPR_ENABLED
+        })
+    
+    # GET or OPTIONS
+    return jsonify({
+        'success': True,
+        'lpr_enabled': getattr(config, 'LPR_ENABLED', True)
+    })
+
+

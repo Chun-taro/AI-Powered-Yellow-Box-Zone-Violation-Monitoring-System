@@ -18,8 +18,6 @@ export function ViolationLogs() {
   const fetchViolations = async () => {
     try {
       const res = await axios.get(`${API_BASE}/api/violations`);
-      // Since db returns list of lists usually, map it correctly if needed
-      // Based on dashboard_routes.py process_violations, it returns list of dicts
       setViolations(res.data);
       setLoading(false);
     } catch (error) {
@@ -29,6 +27,7 @@ export function ViolationLogs() {
 
   const filtered = violations.filter(v => 
     v.label?.toLowerCase().includes(search.toLowerCase()) ||
+    v.plate_number?.toLowerCase().includes(search.toLowerCase()) ||
     v.timestamp?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -111,12 +110,18 @@ export function ViolationLogs() {
                     {v.vehicle_color || 'Standard'}
                   </td>
                   <td className="px-6 py-4">
-                    {v.plate_number ? (
+                    {v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && v.plate_number !== 'UNREAD' ? (
                       <span className="text-xs font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded border border-emerald-400/20">
                         {v.plate_number}
                       </span>
+                    ) : v.plate_number && v.plate_number.toUpperCase().includes('DISABLED') ? (
+                      <span className="text-[11px] font-bold tracking-wider text-amber-300 bg-amber-400/10 px-2.5 py-0.5 rounded border border-amber-400/20">
+                        LPR DISABLED
+                      </span>
                     ) : (
-                      <span className="text-xs text-white/20">—</span>
+                      <span className="text-[11px] font-medium text-amber-400/70 bg-amber-400/5 px-2.5 py-0.5 rounded border border-amber-400/10">
+                        LPR DISABLED
+                      </span>
                     )}
                   </td>
                   <td className="px-6 py-4 text-xs text-muted max-w-[180px] truncate">
@@ -203,14 +208,18 @@ export function ViolationLogs() {
                             <span className="text-xs sm:text-sm text-muted flex items-center gap-2"><Eye className="w-4 h-4" /> Confidence</span>
                             <span className="text-xs sm:text-sm font-bold">{selectedViolation.confidence ? (selectedViolation.confidence * 100).toFixed(1) : '0'}%</span>
                          </div>
-                         {selectedViolation.plate_number && (
-                           <div className="flex justify-between items-center py-2.5 border-b border-white/5">
-                              <span className="text-xs sm:text-sm text-muted">Plate No.</span>
+                         <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                            <span className="text-xs sm:text-sm text-muted">Plate No.</span>
+                            {selectedViolation.plate_number && !selectedViolation.plate_number.toUpperCase().includes('DISABLED') && selectedViolation.plate_number !== 'UNREAD' ? (
                               <span className="text-xs font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">
-                                  {selectedViolation.plate_number}
+                                {selectedViolation.plate_number}
                               </span>
-                           </div>
-                         )}
+                            ) : (
+                              <span className="text-xs font-bold tracking-wider text-amber-300 bg-amber-400/10 px-2.5 py-1 rounded border border-amber-400/20">
+                                LPR DISABLED
+                              </span>
+                            )}
+                         </div>
                       </div>
 
                       <button 

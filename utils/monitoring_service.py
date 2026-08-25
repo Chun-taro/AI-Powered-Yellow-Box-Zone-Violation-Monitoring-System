@@ -365,21 +365,26 @@ class MonitoringService:
                     (x1-cx1, y2-cy1+40),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
 
-        # --- LPR: Read plate or use pre-captured plate ---
-        plate_number = self.cached_plates.get(obj_id)
-        if not plate_number:
-            try:
-                plate_crop = crop_plate_region(frame, bbox)
-                if plate_crop is not None:
-                    plate_number = lpr_reader.read_plate(plate_crop)
-            except Exception as e:
-                logging.warning(f"LPR failed for vehicle {obj_id}: {e}")
-        
-        if plate_number:
-            logging.info(f"LPR confirmed plate: {plate_number} for vehicle ID {obj_id}")
-            cv2.putText(cropped, f"PLATE: {plate_number}",
-                        (x1-cx1, y2-cy1+20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        # --- LPR: Read plate or use pre-captured plate (if enabled by admin) ---
+        plate_number = None
+        if getattr(config, 'LPR_ENABLED', True):
+            plate_number = self.cached_plates.get(obj_id)
+            if not plate_number:
+                try:
+                    plate_crop = crop_plate_region(frame, bbox)
+                    v_crop = frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
+                    if plate_crop is not None:
+                        plate_number = lpr_reader.read_plate(plate_crop, full_vehicle_crop=v_crop)
+                except Exception as e:
+                    logging.warning(f"LPR failed for vehicle {obj_id}: {e}")
+            
+            if plate_number:
+                logging.info(f"LPR confirmed plate: {plate_number} for vehicle ID {obj_id}")
+                cv2.putText(cropped, f"PLATE: {plate_number}",
+                            (x1-cx1, y2-cy1+20),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        else:
+            plate_number = "LPR DISABLED"
         
         filename = f"violation_{timestamp}_{label}_{obj_id}.jpg"
         save_path = os.path.join("static", "violations", filename)
@@ -563,16 +568,18 @@ class MonitoringService:
                         
                         # Timer & Violation Logic
                         if is_in_zone:
-                            # Pre-capture LPR plate upon entering yellow box zone
-                            if obj_id not in self.cached_plates:
-                                try:
-                                    plate_crop = crop_plate_region(frame, bbox)
-                                    if plate_crop is not None:
-                                        read_p = lpr_reader.read_plate(plate_crop)
-                                        if read_p:
-                                            self.cached_plates[obj_id] = read_p
-                                except Exception:
-                                    pass
+                            # Pre-capture LPR plate while inside yellow box zone (only if enabled by admin, throttled every 5 frames)
+                            if getattr(config, 'LPR_ENABLED', True) and (obj_id not in self.cached_plates or self.cached_plates[obj_id] is None):
+                                if ai_frames % 5 == 0:
+                                    try:
+                                        plate_crop = crop_plate_region(frame, bbox)
+                                        v_crop = frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
+                                        if plate_crop is not None:
+                                            read_p = lpr_reader.read_plate(plate_crop, full_vehicle_crop=v_crop)
+                                            if read_p:
+                                                self.cached_plates[obj_id] = read_p
+                                    except Exception:
+                                        pass
 
                             is_loading = (current_time - self.vehicle_loading_status.get(obj_id, 0)) < 3.0
                             

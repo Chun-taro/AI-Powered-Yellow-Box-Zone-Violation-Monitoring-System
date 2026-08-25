@@ -53,6 +53,44 @@ class Config:
             print(f"Error saving zone config: {e}")
             return False
 
+    # System settings
+    SYSTEM_CONFIG_PATH = os.path.join(BASE_DIR, 'system_config.json')
+
+    def load_system_config(self):
+        import json
+        default_cfg = {'lpr_enabled': True}
+        try:
+            if os.path.exists(self.SYSTEM_CONFIG_PATH):
+                with open(self.SYSTEM_CONFIG_PATH, 'r') as f:
+                    data = json.load(f)
+                    return {**default_cfg, **data}
+        except Exception as e:
+            print(f"Error loading system config: {e}")
+        return default_cfg
+
+    def save_system_config(self, cfg_data):
+        import json
+        try:
+            current = self.load_system_config()
+            current.update(cfg_data)
+            with open(self.SYSTEM_CONFIG_PATH, 'w') as f:
+                json.dump(current, f, indent=2)
+            self._system_config = current
+            return True
+        except Exception as e:
+            print(f"Error saving system config: {e}")
+            return False
+
+    @property
+    def LPR_ENABLED(self):
+        if not hasattr(self, '_system_config'):
+            self._system_config = self.load_system_config()
+        return self._system_config.get('lpr_enabled', True)
+
+    @LPR_ENABLED.setter
+    def LPR_ENABLED(self, value):
+        self.save_system_config({'lpr_enabled': bool(value)})
+
     @property
     def YELLOW_BOX_ZONE(self):
         if not hasattr(self, '_yellow_box_zone'):

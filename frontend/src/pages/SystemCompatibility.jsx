@@ -18,6 +18,7 @@ import {
   Activity
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Cookies from 'js-cookie';
 
 const API_BASE = "http://localhost:5000";
 const CACHE_KEY = "yellowbox_compatibility_scan";
@@ -27,6 +28,10 @@ export function SystemCompatibility() {
   const [scanning, setScanning] = useState(false);
   const [scanStep, setScanStep] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [lprEnabled, setLprEnabled] = useState(true);
+  const [isTogglingLpr, setIsTogglingLpr] = useState(false);
+
+  const userRole = Cookies.get('user_role') || 'admin';
 
   const scanSteps = [
     "Initializing Hardware Scanner...",
@@ -37,8 +42,50 @@ export function SystemCompatibility() {
     "Compiling System Performance Score..."
   ];
 
+  const fetchLprStatus = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/api/settings/lpr`);
+      if (res.data && res.data.lpr_enabled !== undefined) {
+        setLprEnabled(res.data.lpr_enabled);
+      }
+    } catch (e) {
+      console.error("Failed to fetch LPR status:", e);
+    }
+  };
+
+  const handleToggleLpr = async () => {
+    if (userRole !== 'admin') {
+      toast.error("Only Super Administrators can toggle LPR system features.");
+      return;
+    }
+    const nextVal = !lprEnabled;
+    setIsTogglingLpr(true);
+    try {
+      let res;
+      try {
+        res = await axios.post(`${API_BASE}/api/settings/lpr`, { enabled: nextVal });
+      } catch (err) {
+        res = await axios.post(`${API_BASE}/set_lpr`, { enabled: nextVal });
+      }
+      if (res && res.data && res.data.success) {
+        setLprEnabled(res.data.lpr_enabled);
+        if (res.data.lpr_enabled) {
+          toast.success("License Plate Recognition (ALPR) Enabled", { icon: '🔍' });
+        } else {
+          toast("LPR Engine Bypassed (Bypassing OCR for performance & low-res feeds)", { icon: '⚡' });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to toggle LPR:", err);
+      toast.error("Failed to update LPR setting. Please restart backend server if newly updated.");
+    } finally {
+      setIsTogglingLpr(false);
+    }
+  };
+
   // Load cached scan on mount
   useEffect(() => {
+    fetchLprStatus();
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
       try {
@@ -559,6 +606,60 @@ export function SystemCompatibility() {
                       </div>
                     ))
                   )}
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Feature Control Panel - ALPR Engine */}
+            <div className="glass-card border border-amber-500/20 bg-amber-500/5 rounded-3xl p-6 shadow-xl">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-amber-500/20 border border-amber-500/40 rounded-2xl flex items-center justify-center">
+                    <ShieldCheck className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-white text-base">Automatic License Plate Recognition (ALPR)</h3>
+                      <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded bg-amber-400/10 text-amber-300 border border-amber-400/20">
+                        Super Admin Feature
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted">Toggle character OCR on vehicle snapshots dynamically</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                  <span className={`text-xs font-bold ${lprEnabled ? 'text-amber-300' : 'text-muted'}`}>
+                    {lprEnabled ? 'ACTIVE / RUNNING' : 'BYPASSED / OFF'}
+                  </span>
+                  <button
+                    onClick={handleToggleLpr}
+                    disabled={isTogglingLpr}
+                    className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${
+                      lprEnabled ? 'bg-amber-500' : 'bg-zinc-800'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                        lprEnabled ? 'translate-x-8' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-muted">
+                <div className="bg-black/20 rounded-2xl p-3.5 border border-white/5">
+                  <span className="text-[10px] uppercase font-bold text-white/80 block mb-1">Optical Engine</span>
+                  <span className="text-white font-semibold">EasyOCR + CLAHE Super-Resolution</span>
+                </div>
+                <div className="bg-black/20 rounded-2xl p-3.5 border border-white/5">
+                  <span className="text-[10px] uppercase font-bold text-white/80 block mb-1">Operational Advisory</span>
+                  <span>Turn OFF during low-resolution / distant CCTV feeds to maximize FPS and prevent noisy reads.</span>
+                </div>
+                <div className="bg-black/20 rounded-2xl p-3.5 border border-white/5">
+                  <span className="text-[10px] uppercase font-bold text-white/80 block mb-1">NCAP Evidence Impact</span>
+                  <span>When OFF, violations record standard class labels & dwell timestamps without plate overlay.</span>
                 </div>
               </div>
             </div>

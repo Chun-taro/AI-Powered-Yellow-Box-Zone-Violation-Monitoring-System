@@ -6,6 +6,7 @@ import { AlertTriangle, Camera, X, ExternalLink, Calendar, Activity, CreditCard,
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
 const API_BASE = "http://localhost:5000";
 
@@ -40,6 +41,10 @@ export function Dashboard() {
   const [realtimeStats, setRealtimeStats] = useState({});
   const [testVideos, setTestVideos] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [lprEnabled, setLprEnabled] = useState(true);
+  const [isTogglingLpr, setIsTogglingLpr] = useState(false);
+
+  const userRole = Cookies.get('user_role') || 'admin';
 
   const fetchData = async () => {
     try {
@@ -52,10 +57,43 @@ export function Dashboard() {
       setViolations(vRes.data);
       setStats(sRes.data);
       setCameraConfig(cRes.data);
+      if (cRes.data && cRes.data.lpr_enabled !== undefined) {
+        setLprEnabled(cRes.data.lpr_enabled);
+      }
       setTestVideos(tvRes.data);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
+    }
+  };
+
+  const handleToggleLPR = async () => {
+    if (userRole !== 'admin') {
+      toast.error("Only Super Administrators can toggle LPR system features.");
+      return;
+    }
+    const nextState = !lprEnabled;
+    setIsTogglingLpr(true);
+    try {
+      let res;
+      try {
+        res = await axios.post(`${API_BASE}/api/settings/lpr`, { enabled: nextState });
+      } catch (err) {
+        res = await axios.post(`${API_BASE}/set_lpr`, { enabled: nextState });
+      }
+      if (res && res.data && res.data.success) {
+        setLprEnabled(res.data.lpr_enabled);
+        if (res.data.lpr_enabled) {
+          toast.success("License Plate Recognition (ALPR) Enabled", { icon: '🔍' });
+        } else {
+          toast("LPR OCR Bypassed (Bypassing low-res text OCR)", { icon: '⚡' });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to toggle LPR:", error);
+      toast.error("Failed to update LPR setting. Please restart backend server if newly updated.");
+    } finally {
+      setIsTogglingLpr(false);
     }
   };
 
@@ -280,6 +318,25 @@ export function Dashboard() {
             </div>
           )}
 
+          {userRole === 'admin' && (
+            <button
+              onClick={handleToggleLPR}
+              disabled={isTogglingLpr}
+              title={lprEnabled ? "LPR Active: Click to Disable" : "LPR Disabled: Click to Enable"}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer shrink-0 ${
+                lprEnabled
+                  ? 'bg-amber-400/10 border-amber-400/30 text-amber-300 hover:bg-amber-400/20 shadow-lg shadow-amber-400/5'
+                  : 'bg-zinc-800/80 border-white/10 text-muted hover:text-white hover:bg-zinc-800'
+              }`}
+            >
+              <div className={`w-2 h-2 rounded-full ${lprEnabled ? 'bg-amber-400 animate-pulse' : 'bg-zinc-500'}`} />
+              <span className="hidden sm:inline">LPR:</span>
+              <span className={lprEnabled ? 'text-amber-300 font-extrabold' : 'text-zinc-400'}>
+                {lprEnabled ? 'ENABLED' : 'DISABLED'}
+              </span>
+            </button>
+          )}
+
           <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold shrink-0">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             {isUpdatingSource ? 'SWITCHING...' : 'AI ACTIVE'}
@@ -415,9 +472,15 @@ export function Dashboard() {
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-muted uppercase tracking-tight">Plate Number</p>
-                        <p className="text-xs font-bold tracking-wider text-emerald-400">
-                          {selectedViolation.plate_number || "UNREAD / NOT DETECTED"}
-                        </p>
+                        {selectedViolation.plate_number && !selectedViolation.plate_number.toUpperCase().includes('DISABLED') && selectedViolation.plate_number !== 'UNREAD' ? (
+                          <p className="text-xs font-black tracking-widest text-emerald-400">
+                            {selectedViolation.plate_number}
+                          </p>
+                        ) : (
+                          <span className="inline-block mt-0.5 text-[11px] font-bold tracking-wider text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                            LPR DISABLED
+                          </span>
+                        )}
                       </div>
                     </div>
 

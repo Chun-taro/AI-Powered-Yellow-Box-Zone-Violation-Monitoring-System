@@ -83,6 +83,20 @@ def set_camera():
     # You can optionally save to a persistent file here if needed
     return jsonify({'success': True, 'message': f'Camera source updated to {data["source"]}'})
 
+@app.route('/set_lpr', methods=['POST'])
+def set_lpr():
+    data = request.json or {}
+    if 'enabled' not in data:
+        return jsonify({'error': 'Missing "enabled" boolean field'}), 400
+    enabled = bool(data['enabled'])
+    config.LPR_ENABLED = enabled
+    return jsonify({
+        'success': True,
+        'message': f"LPR has been {'enabled' if enabled else 'disabled'}",
+        'lpr_enabled': config.LPR_ENABLED
+    })
+
+
 @app.route('/api/test_videos', methods=['GET'])
 def list_test_videos():
     camera_dir = os.path.join(os.getcwd(), 'camera')

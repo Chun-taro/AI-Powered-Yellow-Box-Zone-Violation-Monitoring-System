@@ -180,7 +180,7 @@ export function Reports() {
         v.location || 'Sayre Highway - Fortich St.',
         (v.label || 'Vehicle').toUpperCase(),
         v.vehicle_color || 'Standard',
-        v.plate_number || 'UNREAD',
+        v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && v.plate_number !== 'UNREAD' ? v.plate_number : 'LPR DISABLED',
         `${v.stop_duration}s`,
         (v.status || 'recorded').toUpperCase()
       ]),
@@ -313,7 +313,7 @@ export function Reports() {
           <td>${v.location || 'Sayre Highway - Fortich St., Malaybalay City'}</td>
           <td>${(v.label || 'Vehicle').toUpperCase()}</td>
           <td>${v.vehicle_color || 'Standard'}</td>
-          <td><b>${v.plate_number || 'UNREAD'}</b></td>
+          <td><b>${v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && v.plate_number !== 'UNREAD' ? v.plate_number : 'LPR DISABLED'}</b></td>
           <td>${v.stop_duration}s</td>
           <td>${(v.status || 'recorded').toUpperCase()}</td>
           <td><a href="${imgUrl}">${imgUrl}</a></td>
@@ -339,7 +339,7 @@ export function Reports() {
       v.location || 'Sayre Highway - Fortich St., Malaybalay City',
       v.label,
       v.vehicle_color || 'Standard',
-      v.plate_number || 'UNREAD',
+      v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && v.plate_number !== 'UNREAD' ? v.plate_number : 'LPR DISABLED',
       v.stop_duration,
       v.status,
       v.confidence ? (v.confidence * 100).toFixed(1) : '0',
@@ -635,12 +635,14 @@ export function Reports() {
                     <span className="capitalize font-bold text-white">{v.label}</span>
                   </td>
                   <td className="py-6 px-4">
-                    {v.plate_number ? (
+                    {v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && v.plate_number !== 'UNREAD' ? (
                       <span className="text-xs font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded border border-emerald-400/20">
                         {v.plate_number}
                       </span>
                     ) : (
-                      <span className="text-xs text-white/20">—</span>
+                      <span className="text-[11px] font-bold tracking-wider text-amber-300 bg-amber-400/10 px-2.5 py-0.5 rounded border border-amber-400/20">
+                        LPR DISABLED
+                      </span>
                     )}
                   </td>
                   <td className="py-6 px-4 text-sm text-neutral-400">
@@ -725,14 +727,18 @@ export function Reports() {
                             <span className="text-sm text-muted flex items-center gap-2"><Eye className="w-4 h-4" /> Confidence</span>
                             <span className="text-sm font-bold">{selectedViolation.confidence ? (selectedViolation.confidence * 100).toFixed(1) : '0'}%</span>
                          </div>
-                         {selectedViolation.plate_number && (
-                            <div className="flex justify-between items-center py-3 border-b border-white/5">
-                                <span className="text-sm text-muted">Plate Number</span>
-                                <span className="text-xs font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded border border-emerald-400/20">
-                                    {selectedViolation.plate_number}
-                                </span>
-                            </div>
-                         )}
+                         <div className="flex justify-between items-center py-3 border-b border-white/5">
+                            <span className="text-sm text-muted">Plate Number</span>
+                            {selectedViolation.plate_number && !selectedViolation.plate_number.toUpperCase().includes('DISABLED') && selectedViolation.plate_number !== 'UNREAD' ? (
+                              <span className="text-xs font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded border border-emerald-400/20">
+                                {selectedViolation.plate_number}
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold tracking-wider text-amber-300 bg-amber-400/10 px-2.5 py-1 rounded border border-amber-400/20">
+                                LPR DISABLED
+                              </span>
+                            )}
+                         </div>
                       </div>
 
                       <button 
