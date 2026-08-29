@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, Clock, AlertCircle, Check } from 'lucide-react';
+import { getVehicleColorMeta } from '../utils/colorHelper';
 
 export function ViolationList({ violations, onViewImage, viewedIds = [], onMarkViewed }) {
   const isItemNew = (v) => {
@@ -25,6 +26,7 @@ export function ViolationList({ violations, onViewImage, viewedIds = [], onMarkV
           violations.slice(0, 10).map((v, index) => {
             const isNew = isItemNew(v);
             const keyId = v.id || v.detection_id || index;
+            const cMeta = getVehicleColorMeta(v.vehicle_color);
 
             return (
               <motion.div
@@ -88,19 +90,23 @@ export function ViolationList({ violations, onViewImage, viewedIds = [], onMarkV
                         {v.timestamp ? new Date(v.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-[11px] text-muted font-medium truncate max-w-[110px]">{v.vehicle_color || 'Standard'}</p>
-                      {v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && v.plate_number !== 'UNREAD' ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Detected Vehicle Color styled with its actual matching color */}
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${cMeta.bg} ${cMeta.border} ${cMeta.text}`}>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: cMeta.hex }} />
+                        {cMeta.name}
+                      </span>
+                      {v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && !v.plate_number.toUpperCase().includes('UNREAD') ? (
                         <span className="text-[10px] font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20">
                           {v.plate_number}
                         </span>
                       ) : v.plate_number && v.plate_number.toUpperCase().includes('DISABLED') ? (
-                        <span className="text-[10px] font-bold text-amber-300/90 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                        <span className="text-[10px] font-semibold text-white/50 bg-white/5 px-2 py-0.5 rounded border border-white/10">
                           LPR Disabled
                         </span>
                       ) : (
-                        <span className="text-[10px] font-medium text-amber-400/70 bg-amber-400/5 px-2 py-0.5 rounded border border-amber-400/10">
-                          LPR Disabled
+                        <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                          UNREADABLE
                         </span>
                       )}
                     </div>

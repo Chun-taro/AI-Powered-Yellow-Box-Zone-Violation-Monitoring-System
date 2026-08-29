@@ -78,7 +78,7 @@ export function VideoFeed({ src, title = "Live Monitoring", stats = {} }) {
         </div>
 
         {/* Video Canvas Container */}
-        <div className="aspect-video bg-zinc-950 flex items-center justify-center relative select-none">
+        <div className="aspect-video max-h-[38vh] sm:max-h-[44vh] md:max-h-[48vh] lg:max-h-[52vh] 2xl:max-h-[58vh] bg-zinc-950 flex items-center justify-center relative select-none w-full">
           <img 
             src={`${src}?t=${timestamp}`} 
             alt="Live Video Feed" 

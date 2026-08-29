@@ -9,6 +9,7 @@ import axios from 'axios';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getVehicleColorMeta } from '../utils/colorHelper';
 
 const API_BASE = "http://localhost:5000";
 const COLORS = ['#f97316', '#f59e0b', '#ef4444', '#10b981', '#38bdf8'];
@@ -305,6 +306,7 @@ export function Reports() {
     data.slice(0, maxRows).forEach(v => {
       const imgB64 = imagesMap[v.id] ? `<img src="${imagesMap[v.id]}" width="90" height="50" />` : 'No Photo';
       const imgUrl = `${API_BASE}/${v.image_path}`;
+      const plateText = v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && !v.plate_number.toUpperCase().includes('UNREAD') ? v.plate_number : v.plate_number && v.plate_number.toUpperCase().includes('DISABLED') ? 'LPR DISABLED' : 'UNREADABLE';
       html += `
         <tr>
           <td>#${v.id}</td>
@@ -313,7 +315,7 @@ export function Reports() {
           <td>${v.location || 'Sayre Highway - Fortich St., Malaybalay City'}</td>
           <td>${(v.label || 'Vehicle').toUpperCase()}</td>
           <td>${v.vehicle_color || 'Standard'}</td>
-          <td><b>${v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && v.plate_number !== 'UNREAD' ? v.plate_number : 'LPR DISABLED'}</b></td>
+          <td><b>${plateText}</b></td>
           <td>${v.stop_duration}s</td>
           <td>${(v.status || 'recorded').toUpperCase()}</td>
           <td><a href="${imgUrl}">${imgUrl}</a></td>
@@ -339,7 +341,7 @@ export function Reports() {
       v.location || 'Sayre Highway - Fortich St., Malaybalay City',
       v.label,
       v.vehicle_color || 'Standard',
-      v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && v.plate_number !== 'UNREAD' ? v.plate_number : 'LPR DISABLED',
+      v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && !v.plate_number.toUpperCase().includes('UNREAD') ? v.plate_number : v.plate_number && v.plate_number.toUpperCase().includes('DISABLED') ? 'LPR DISABLED' : 'UNREADABLE',
       v.stop_duration,
       v.status,
       v.confidence ? (v.confidence * 100).toFixed(1) : '0',
@@ -632,16 +634,31 @@ export function Reports() {
                 <tr key={v.id || index} className="group hover:bg-white/[0.02] transition-colors">
                   <td className="py-6 px-4 text-sm font-medium text-muted">#{v.id}</td>
                   <td className="py-6 px-4">
-                    <span className="capitalize font-bold text-white">{v.label}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="capitalize font-bold text-white">{v.label}</span>
+                      {(() => {
+                        const cMeta = getVehicleColorMeta(v.vehicle_color);
+                        return (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${cMeta.bg} ${cMeta.border} ${cMeta.text}`}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: cMeta.hex }} />
+                            {cMeta.name}
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </td>
                   <td className="py-6 px-4">
-                    {v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && v.plate_number !== 'UNREAD' ? (
+                    {v.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && !v.plate_number.toUpperCase().includes('UNREAD') ? (
                       <span className="text-xs font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded border border-emerald-400/20">
                         {v.plate_number}
                       </span>
-                    ) : (
-                      <span className="text-[11px] font-bold tracking-wider text-amber-300 bg-amber-400/10 px-2.5 py-0.5 rounded border border-amber-400/20">
+                    ) : v.plate_number && v.plate_number.toUpperCase().includes('DISABLED') ? (
+                      <span className="text-[11px] font-semibold tracking-wider text-white/50 bg-white/5 px-2.5 py-0.5 rounded border border-white/10">
                         LPR DISABLED
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-0.5 rounded border border-amber-400/20">
+                        UNREADABLE
                       </span>
                     )}
                   </td>
@@ -701,12 +718,28 @@ export function Reports() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12">
-                   <div className="lg:col-span-8 bg-black">
+                   <div className="lg:col-span-8 bg-black relative group select-none flex items-center justify-center p-2">
                       <img 
                         src={`${API_BASE}/${selectedViolation.image_path}`} 
-                        className="w-full h-auto object-contain" 
+                        className="w-full h-auto max-h-[70vh] object-contain rounded-2xl" 
                         alt="Evidence"
                       />
+                      {/* Floating Color Badge on Screenshot */}
+                      {(() => {
+                        const cMeta = getVehicleColorMeta(selectedViolation.vehicle_color);
+                        return (
+                          <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl bg-black/80 border border-white/15 backdrop-blur-md flex items-center gap-2 shadow-2xl">
+                            <span 
+                              className="w-3 h-3 rounded-full border border-white/30 shrink-0 shadow-sm"
+                              style={{ backgroundColor: cMeta.hex, boxShadow: `0 0 10px ${cMeta.shadow}` }}
+                            />
+                            <span className="text-[10px] font-bold text-muted uppercase tracking-wider">Color:</span>
+                            <span className={`text-xs font-black uppercase tracking-wider ${cMeta.text}`}>
+                              {cMeta.name}
+                            </span>
+                          </div>
+                        );
+                      })()}
                    </div>
                    <div className="lg:col-span-4 p-8 space-y-8 self-center">
                       <div>
@@ -724,18 +757,34 @@ export function Reports() {
                             <span className="text-sm font-bold text-red-400 capitalize">{selectedViolation.label}</span>
                          </div>
                          <div className="flex justify-between items-center py-3 border-b border-white/5">
+                            <span className="text-sm text-muted">Vehicle Color</span>
+                            {(() => {
+                              const cMeta = getVehicleColorMeta(selectedViolation.vehicle_color);
+                              return (
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-xs font-black uppercase tracking-wider ${cMeta.bg} ${cMeta.border} ${cMeta.text}`}>
+                                  <span className="w-2 h-2 rounded-full border border-white/20" style={{ backgroundColor: cMeta.hex }} />
+                                  {cMeta.name}
+                                </span>
+                              );
+                            })()}
+                         </div>
+                         <div className="flex justify-between items-center py-3 border-b border-white/5">
                             <span className="text-sm text-muted flex items-center gap-2"><Eye className="w-4 h-4" /> Confidence</span>
                             <span className="text-sm font-bold">{selectedViolation.confidence ? (selectedViolation.confidence * 100).toFixed(1) : '0'}%</span>
                          </div>
                          <div className="flex justify-between items-center py-3 border-b border-white/5">
                             <span className="text-sm text-muted">Plate Number</span>
-                            {selectedViolation.plate_number && !selectedViolation.plate_number.toUpperCase().includes('DISABLED') && selectedViolation.plate_number !== 'UNREAD' ? (
+                            {selectedViolation.plate_number && !selectedViolation.plate_number.toUpperCase().includes('DISABLED') && !selectedViolation.plate_number.toUpperCase().includes('UNREAD') ? (
                               <span className="text-xs font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded border border-emerald-400/20">
                                 {selectedViolation.plate_number}
                               </span>
-                            ) : (
-                              <span className="text-xs font-bold tracking-wider text-amber-300 bg-amber-400/10 px-2.5 py-1 rounded border border-amber-400/20">
+                            ) : selectedViolation.plate_number && selectedViolation.plate_number.toUpperCase().includes('DISABLED') ? (
+                              <span className="text-xs font-semibold tracking-wider text-white/50 bg-white/5 px-2.5 py-1 rounded border border-white/10">
                                 LPR DISABLED
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded border border-amber-400/20">
+                                UNREADABLE
                               </span>
                             )}
                          </div>

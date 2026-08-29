@@ -240,7 +240,13 @@ class MonitoringService:
                     if not is_in_zone: continue
                     
                     color = (255, 0, 0) # Blue
-                    if obj_id in self.violated_ids: color = (0, 0, 255) # Red
+                    is_loading = (time.time() - self.vehicle_loading_status.get(obj_id, 0)) < 1.0
+
+                    if obj_id in self.violated_ids: 
+                        color = (0, 0, 255) # Red
+                    elif is_loading:
+                        cv2.putText(frame, "LOADING 15s", (x1, y1-20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+                        color = (0, 255, 255) # Yellow/Cyan
                     elif obj_id in self.vehicle_timers:
                         elapsed = time.time() - self.vehicle_timers[obj_id]
                         rem = max(0, int(time_limit - elapsed))
@@ -293,55 +299,95 @@ class MonitoringService:
         self.vehicle_count = 0
 
     def _extract_vehicle_color(self, crop_img):
-        """Extract dominant vehicle body color using body-region HSV pixel masking."""
+        """
+        Extract dominant vehicle body color using multi-region outer panel sampling.
+        Excludes dark inner cabin cavities, tires, and windshield reflections.
+        """
         if crop_img is None or crop_img.size == 0:
             return "White"
         try:
             h, w, _ = crop_img.shape
-            if h < 10 or w < 10:
+            if h < 12 or w < 12:
                 return "White"
             
-            # Focus on central vehicle body (exclude tires, road asphalt, and upper windshield glass)
-            y1_crop = int(h * 0.18)
-            y2_crop = int(h * 0.78)
-            x1_crop = int(w * 0.12)
-            x2_crop = int(w * 0.88)
-            
-            body = crop_img[y1_crop:y2_crop, x1_crop:x2_crop]
-            if body.size == 0:
-                body = crop_img
+            # Sample outer body panels (Roof, Left Pillar, Right Pillar, Lower Tailgate/Panel)
+            # Avoid the central open cavity / passenger cabin shadow
+            roof_sample = crop_img[int(h * 0.06):int(h * 0.32), int(w * 0.15):int(w * 0.85)]
+            left_pillar = crop_img[int(h * 0.20):int(h * 0.72), int(w * 0.04):int(w * 0.32)]
+            right_pillar = crop_img[int(h * 0.20):int(h * 0.72), int(w * 0.68):int(w * 0.96)]
+            lower_body = crop_img[int(h * 0.55):int(h * 0.78), int(w * 0.15):int(w * 0.85)]
 
-            hsv = cv2.cvtColor(body, cv2.COLOR_BGR2HSV)
-            total_pixels = body.shape[0] * body.shape[1]
-            if total_pixels == 0:
-                return "White"
+            samples = [s for s in [roof_sample, left_pillar, right_pillar, lower_body] if s is not None and s.size > 0]
+            if not samples:
+                samples = [crop_img]
 
-            # Color ranges in OpenCV HSV space (H: 0-180, S: 0-255, V: 0-255)
-            colors = {
-                "White": cv2.inRange(hsv, np.array([0, 0, 160]), np.array([180, 50, 255])),
-                "Black": cv2.inRange(hsv, np.array([0, 0, 0]), np.array([180, 255, 60])),
-                "Silver / Gray": cv2.inRange(hsv, np.array([0, 0, 60]), np.array([180, 50, 160])),
-                "Red": cv2.bitwise_or(
-                    cv2.inRange(hsv, np.array([0, 50, 60]), np.array([10, 255, 255])),
-                    cv2.inRange(hsv, np.array([160, 50, 60]), np.array([180, 255, 255]))
-                ),
-                "Blue": cv2.inRange(hsv, np.array([85, 50, 60]), np.array([135, 255, 255])),
-                "Yellow": cv2.inRange(hsv, np.array([15, 50, 100]), np.array([35, 255, 255])),
-                "Green": cv2.inRange(hsv, np.array([35, 50, 60]), np.array([85, 255, 255])),
-                "Orange": cv2.inRange(hsv, np.array([10, 50, 100]), np.array([22, 255, 255])),
+            # Aggregate sampled body pixels
+            hsv_samples = [cv2.cvtColor(s, cv2.COLOR_BGR2HSV) for s in samples]
+
+            chromatic_counts = {
+                "Red": 0, "Blue": 0, "Green": 0, "Yellow": 0, "Orange": 0
             }
+            achromatic_counts = {
+                "White": 0, "Silver / Gray": 0, "Black": 0
+            }
+            total_sampled_pixels = 0
 
-            counts = {}
-            for color_name, mask in colors.items():
-                counts[color_name] = cv2.countNonZero(mask)
-
-            dominant_color = max(counts, key=counts.get)
-            
-            # Fallback if no clear color threshold met
-            if counts[dominant_color] < (total_pixels * 0.08):
-                return "White"
+            for hsv in hsv_samples:
+                total_sampled_pixels += hsv.shape[0] * hsv.shape[1]
                 
-            return dominant_color
+                # Chromatic masks (S >= 45, V >= 50)
+                m_red1 = cv2.inRange(hsv, np.array([0, 45, 50]), np.array([10, 255, 255]))
+                m_red2 = cv2.inRange(hsv, np.array([160, 45, 50]), np.array([180, 255, 255]))
+                chromatic_counts["Red"] += cv2.countNonZero(cv2.bitwise_or(m_red1, m_red2))
+                
+                m_blue = cv2.inRange(hsv, np.array([88, 45, 50]), np.array([135, 255, 255]))
+                chromatic_counts["Blue"] += cv2.countNonZero(m_blue)
+
+                m_green = cv2.inRange(hsv, np.array([36, 45, 50]), np.array([86, 255, 255]))
+                chromatic_counts["Green"] += cv2.countNonZero(m_green)
+
+                m_yellow = cv2.inRange(hsv, np.array([16, 45, 80]), np.array([35, 255, 255]))
+                chromatic_counts["Yellow"] += cv2.countNonZero(m_yellow)
+
+                m_orange = cv2.inRange(hsv, np.array([11, 55, 80]), np.array([18, 255, 255]))
+                chromatic_counts["Orange"] += cv2.countNonZero(m_orange)
+
+                # Achromatic masks
+                # White: Bright painted panels (V >= 125, S <= 65)
+                m_white = cv2.inRange(hsv, np.array([0, 0, 125]), np.array([180, 65, 255]))
+                achromatic_counts["White"] += cv2.countNonZero(m_white)
+
+                # Silver / Gray: Medium brightness, low saturation (60 <= V < 125, S <= 45)
+                m_silver = cv2.inRange(hsv, np.array([0, 0, 60]), np.array([180, 45, 124]))
+                achromatic_counts["Silver / Gray"] += cv2.countNonZero(m_silver)
+
+                # Black: Deep dark painted body (V < 45, S <= 55)
+                m_black = cv2.inRange(hsv, np.array([0, 0, 0]), np.array([180, 55, 45]))
+                achromatic_counts["Black"] += cv2.countNonZero(m_black)
+
+            if total_sampled_pixels == 0:
+                return "White"
+
+            best_chromatic = max(chromatic_counts, key=chromatic_counts.get)
+            best_chromatic_count = chromatic_counts[best_chromatic]
+
+            # If there is a prominent chromatic color (e.g. Green, Red, Blue vehicle)
+            if best_chromatic_count >= (total_sampled_pixels * 0.12):
+                return best_chromatic
+
+            # Otherwise, classify based on achromatic body panel dominance
+            white_c = achromatic_counts["White"]
+            silver_c = achromatic_counts["Silver / Gray"]
+            black_c = achromatic_counts["Black"]
+
+            if white_c >= silver_c and white_c >= (total_sampled_pixels * 0.20):
+                return "White"
+            elif silver_c >= (total_sampled_pixels * 0.25):
+                return "Silver / Gray"
+            elif black_c >= (total_sampled_pixels * 0.45):
+                return "Black"
+            else:
+                return "White"
         except Exception as e:
             logging.warning(f"Vehicle color detection error: {e}")
             return "White"
@@ -360,10 +406,24 @@ class MonitoringService:
         vehicle_crop = frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
         vehicle_color = self._extract_vehicle_color(vehicle_crop)
         
-        # Overlay color on evidence image
-        cv2.putText(cropped, f"COLOR: {vehicle_color}",
-                    (x1-cx1, y2-cy1+40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+        # Overlay color on evidence screenshot in its EXACT matching color (with high-contrast stroke)
+        color_bgr_map = {
+            "White": (255, 255, 255),
+            "Black": (45, 45, 45),
+            "Silver / Gray": (200, 200, 200),
+            "Red": (0, 0, 255),
+            "Blue": (255, 120, 0),        # Vibrant Blue
+            "Yellow": (0, 230, 255),       # Vibrant Yellow
+            "Green": (0, 230, 0),         # Vibrant Green
+            "Orange": (0, 140, 255),       # Vibrant Orange
+        }
+        text_bgr = color_bgr_map.get(vehicle_color, (255, 255, 255))
+        outline_bgr = (255, 255, 255) if vehicle_color == "Black" else (0, 0, 0)
+
+        # Draw crisp high-contrast outline first, then colored fill
+        text_pos = (x1-cx1, y2-cy1+40)
+        cv2.putText(cropped, f"COLOR: {vehicle_color}", text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, outline_bgr, 4)
+        cv2.putText(cropped, f"COLOR: {vehicle_color}", text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_bgr, 2)
 
         # --- LPR: Read plate or use pre-captured plate (if enabled by admin) ---
         plate_number = None
@@ -383,6 +443,8 @@ class MonitoringService:
                 cv2.putText(cropped, f"PLATE: {plate_number}",
                             (x1-cx1, y2-cy1+20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            else:
+                plate_number = "UNREADABLE"
         else:
             plate_number = "LPR DISABLED"
         
@@ -404,11 +466,42 @@ class MonitoringService:
                     plate_number=plate_number, confidence=confidence,
                     location=location_name, vehicle_color=vehicle_color
                 )
-            
-            from utils.events import new_violation_event
-            new_violation_event.set()
+                
+                from utils.events import new_violation_event
+                new_violation_event.set()
         except Exception as e:
             logging.error(f"Failed to save violation to DB: {e}")
+
+    def _is_on_right_side(self, x, y, margin=40):
+        """
+        Calculates if a coordinate (x, y) is on the right-side monitored lane / sidewalk
+        based on the angled perspective boundary of the yellow box zone.
+        Any detection on the left side (left lane traffic, oncoming vehicles, motorcyclists)
+        is strictly discarded.
+        """
+        if self.yellow_zone is None or len(self.yellow_zone) < 4:
+            return True
+        try:
+            pts = self.yellow_zone.reshape(-1, 2)
+            # Find the two left-most vertices of the yellow zone
+            sorted_by_x = pts[pts[:, 0].argsort()]
+            left_pts = sorted_by_x[:2]
+            
+            # Sort top to bottom
+            pt1, pt2 = left_pts[left_pts[:, 1].argsort()]
+            x_tl, y_tl = float(pt1[0]), float(pt1[1])
+            x_bl, y_bl = float(pt2[0]), float(pt2[1])
+            
+            if abs(y_bl - y_tl) > 1e-3:
+                t = (y - y_tl) / (y_bl - y_tl)
+                # Compute angled diagonal X boundary at height y
+                boundary_x = x_tl + t * (x_bl - x_tl)
+            else:
+                boundary_x = min(x_tl, x_bl)
+            
+            return x >= (boundary_x - margin)
+        except Exception:
+            return True
 
     def _ai_loop(self):
         """Asynchronous AI detection loop to prevent visual lag."""
@@ -442,6 +535,8 @@ class MonitoringService:
                         ai_frames = 0
                         ai_last_time = current_time
 
+                    h, w = frame.shape[:2]
+
                     # AI Inference (Full frame)
                     detections_raw = self.detector.detect(frame)
                     
@@ -462,6 +557,14 @@ class MonitoringService:
                         x1, y1, x2, y2 = map(int, detection['bbox'])
                         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
                         
+                        # -----------------------------------------------------------------
+                        # STRICT ANGLED PERSPECTIVE ROI FILTER (LEFT-LANE DISCARD):
+                        # Completely ignore any vehicle, motorcycle, or pedestrian on the
+                        # left side or center lane of the road.
+                        # -----------------------------------------------------------------
+                        if not self._is_on_right_side(cx, cy, margin=40) and not self._is_on_right_side(x2, cy, margin=40):
+                            continue
+                        
                         # 1. Detection logic for vehicles (PRIORITY)
                         if label == 'car':
                             is_in_zone = False
@@ -473,7 +576,6 @@ class MonitoringService:
                                              cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
                                              cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0
                             else:
-                                # If no zone is defined, we track everything
                                 is_in_zone = True
                             
                             if is_in_zone:
@@ -483,30 +585,18 @@ class MonitoringService:
                                 bbox_to_label[rect] = label
                                 bbox_to_conf[rect] = conf
                         
-                        # 2. Detection logic for persons (Suppressed if overlapping with vehicles)
+                        # 2. Detection logic for persons (Strictly right-side sidewalk / boarding area)
                         elif label == 'person':
-                            if conf < 0.45: continue
-                            
-                            # SIDEWALK FILTER: Only detect persons on the right side of the frame
-                            # People on the left are typically enforcers or motorcycle riders
-                            frame_w = frame.shape[1]
-                            if cx < (frame_w // 2): continue
+                            if conf < 0.25: continue
 
-                            # OVERLAP FILTER: Skip if this person is already inside a vehicle detection
-                            is_inside_vehicle = False
-                            for v_rect in detections_for_tracker:
-                                vx1, vy1, vx2, vy2 = v_rect
-                                # If person bbox is 80% inside a vehicle bbox, it's likely a misdetection
-                                if x1 > vx1-10 and y1 > vy1-10 and x2 < vx2+10 and y2 < vy2+10:
-                                    is_inside_vehicle = True
-                                    break
-                            
-                            if is_inside_vehicle: continue
+                            # Person must be strictly on the right side of the angled road boundary
+                            if not self._is_on_right_side(cx, cy, margin=15):
+                                continue
 
-                            # Track persons near the zone for loading/unloading detection
+                            # Only track pedestrians within yellow zone or right sidewalk
                             if self.yellow_zone is not None:
                                 dist_to_zone = cv2.pointPolygonTest(self.yellow_zone, (float(cx), float(cy)), True)
-                                if dist_to_zone >= -250: # Includes inside (>=0) and nearby (-250 to 0)
+                                if dist_to_zone >= -70: # strictly inside zone or right adjacent sidewalk
                                     person_count += 1
                                     current_persons.append((x1, y1, x2, y2, cx, cy, conf))
                             else:
@@ -529,9 +619,8 @@ class MonitoringService:
                     self.vehicle_count = vehicle_count
                     self.current_persons = current_persons
 
-                    # VIOLATION LOGIC (Moved to AI thread to prevent main loop slowdown)
+                    # VIOLATION & DWELL TIMER LOGIC
                     current_frame_ids = set()
-                    # VIOLATION LOGIC (Working with thread-safe current snap)
                     for obj_id, (centroid, bbox) in self.tracked_objects_map.copy().items():
                         if self.tracker.disappeared.get(obj_id, 0) > 15: continue
                         current_frame_ids.add(obj_id)
@@ -558,17 +647,32 @@ class MonitoringService:
                                 self.is_stopped_map[obj_id] = dist < 15
                                 self.movement_start_pos[obj_id] = (current_time, scx, scy)
                         
-                        # Loading status
+                        # Right-Side Passenger Loading / Boarding Detection:
+                        # ONLY triggers when someone is DIRECTLY BESIDE (<=35px) the vehicle or going in/out
                         for p_data in current_persons:
-                            pcx, pcy = p_data[4], p_data[5]
-                            if pcx > scx:
-                                dist = math.sqrt((pcx - max(x1, min(pcx, x2)))**2 + (pcy - max(y1, min(pcy, y2)))**2)
-                                if dist < 60 or (x1 <= pcx <= x2 and y1 <= pcy <= y2):
-                                    self.vehicle_loading_status[obj_id] = current_time
-                        
-                        # Timer & Violation Logic
+                            px1, py1, px2, py2, pcx, pcy, pconf = p_data
+                            
+                            # 1. Bounding box intersection (stepping in/out of the vehicle doorway)
+                            inter_w = max(0, min(x2, px2) - max(x1, px1))
+                            inter_h = max(0, min(y2, py2) - max(y1, py1))
+                            has_overlap = (inter_w > 0) and (inter_h > 0)
+
+                            # 2. Directly beside the vehicle (touching/stepping on right side or rear step <= 35px)
+                            dist_x = max(0, max(x1 - px2, px1 - x2))
+                            dist_y = max(0, max(y1 - py2, py1 - y2))
+                            edge_dist = math.hypot(dist_x, dist_y)
+                            
+                            is_vertically_aligned = (pcy >= y1 - 25) and (pcy <= y2 + 35)
+
+                            if has_overlap or (edge_dist <= 35 and is_vertically_aligned):
+                                self.vehicle_loading_status[obj_id] = current_time
+
+                        # Active loading state: passenger going in/out within last 1.0 second
+                        is_loading = (current_time - self.vehicle_loading_status.get(obj_id, 0)) < 1.0
+
+                        # Yellow Box Zone Dwell Timer Logic
                         if is_in_zone:
-                            # Pre-capture LPR plate while inside yellow box zone (only if enabled by admin, throttled every 5 frames)
+                            # Pre-capture LPR plate while inside yellow box zone (throttled)
                             if getattr(config, 'LPR_ENABLED', True) and (obj_id not in self.cached_plates or self.cached_plates[obj_id] is None):
                                 if ai_frames % 5 == 0:
                                     try:
@@ -581,17 +685,14 @@ class MonitoringService:
                                     except Exception:
                                         pass
 
-                            is_loading = (current_time - self.vehicle_loading_status.get(obj_id, 0)) < 3.0
-                            
-                            # MODE A: Immediate & Continuous Yellow Box Zone Occupancy Dwell Timer
-                            # Starts counting immediately upon entering zone if no passenger is boarding/alighting (even if moving/rolling)
                             if not is_loading:
+                                # Normal vehicle dwelling in yellow box without passengers -> countdown to violation
                                 if obj_id not in self.vehicle_timers:
                                     self.vehicle_timers[obj_id] = current_time
+                                
                                 elapsed = current_time - self.vehicle_timers[obj_id]
                                 if elapsed >= time_limit and obj_id not in self.violated_ids:
                                     self.violated_ids.add(obj_id)
-                                    # Pre-encode frame for violation if camera is available
                                     self._save_violation(
                                         frame, bbox, obj_id, 
                                         self.vehicle_types.get(obj_id, 'car'), 
@@ -599,15 +700,15 @@ class MonitoringService:
                                         confidence=self.vehicle_confidences.get(obj_id, 0.0)
                                     )
                             else:
-                                # Legitimate passenger boarding/alighting pauses/resets timer
+                                # Legitimate passenger boarding/alighting -> RESET TIMER BACK TO 15s
                                 self.vehicle_timers.pop(obj_id, None)
                         else:
-                            # Discard captured plate if vehicle leaves yellowbox without violation
+                            # Vehicle cleared or left yellow box zone without violation
                             if obj_id not in self.violated_ids:
                                 self.cached_plates.pop(obj_id, None)
                             self.vehicle_timers.pop(obj_id, None)
                         
-                        # Periodic local check (optional if shared state is updated by main loop)
+                        # Periodic local check
                         if ai_frames % 10 == 0:
                             self._check_zone_update()
                 except Exception as e:

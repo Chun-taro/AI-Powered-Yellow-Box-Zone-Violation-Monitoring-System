@@ -66,7 +66,7 @@ function AppLayout() {
         </header>
       )}
 
-      <main className={`${showSidebarAndHeader ? 'pt-20 sm:pt-24 px-3 sm:px-6 md:px-8 pb-10' : ''} transition-all duration-300 w-full`}>
+      <main className={`${showSidebarAndHeader ? 'pt-16 sm:pt-20 px-2 sm:px-4 md:px-6 pb-6' : ''} transition-all duration-300 w-full`}>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
