@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { StatCard } from '../components/StatCard';
 import { VideoFeed } from '../components/VideoFeed';
 import { ViolationList } from '../components/ViolationList';
-import { AlertTriangle, Camera, X, ExternalLink, Calendar, Activity, CreditCard, Upload, PlayCircle, Film } from 'lucide-react';
+import { AlertTriangle, Camera, X, ExternalLink, Calendar, Activity, CreditCard, Upload, PlayCircle, Film, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import axios from 'axios';
@@ -43,6 +43,50 @@ export function Dashboard() {
   const [isUploading, setIsUploading] = useState(false);
   const [lprEnabled, setLprEnabled] = useState(true);
   const [isTogglingLpr, setIsTogglingLpr] = useState(false);
+  const [viewedIds, setViewedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tmc_viewed_violations');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const markViolationAsViewed = (id) => {
+    if (!id) return;
+    setViewedIds(prev => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      try {
+        localStorage.setItem('tmc_viewed_violations', JSON.stringify(next));
+      } catch (e) {
+        console.error("Error saving viewed violations", e);
+      }
+      return next;
+    });
+  };
+
+  const handleMarkAllAsViewed = () => {
+    const allIds = violations.map(v => v.id || v.detection_id || v.timestamp).filter(Boolean);
+    setViewedIds(prev => {
+      const next = Array.from(new Set([...prev, ...allIds]));
+      try {
+        localStorage.setItem('tmc_viewed_violations', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    toast.success("All live alerts marked as viewed", { icon: '✓' });
+  };
+
+  const handleViewViolation = (violation) => {
+    setSelectedViolation(violation);
+    if (violation) {
+      const id = violation.id || violation.detection_id || violation.timestamp;
+      if (id) {
+        markViolationAsViewed(id);
+      }
+    }
+  };
 
   const userRole = Cookies.get('user_role') || 'admin';
 
@@ -161,7 +205,7 @@ export function Dashboard() {
                   onClick={() => {
                     toast.dismiss(t.id);
                     if (latestViolation) {
-                      setSelectedViolation(latestViolation);
+                      handleViewViolation(latestViolation);
                     } else {
                       window.location.href = '/logs';
                     }
@@ -379,17 +423,48 @@ export function Dashboard() {
         <div className="lg:col-span-4 xl:col-span-3">
           <div className="glass p-4 sm:p-6 rounded-3xl lg:rounded-[2.5rem] h-[450px] lg:h-[620px] xl:h-[680px] flex flex-col border border-white/5">
             <div className="flex justify-between items-center mb-4 sm:mb-6">
-              <h3 className="text-base sm:text-lg font-bold text-white/90">Live Alerts</h3>
-              <div className="px-3 py-1 bg-accent/10 border border-accent/20 rounded-full">
-                <span className="text-[10px] font-bold text-accent uppercase tracking-wider">
-                  {violations.length} recent
-                </span>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base sm:text-lg font-bold text-white/90">Live Alerts</h3>
+                {violations.filter(v => {
+                  const id = v.id || v.detection_id || v.timestamp;
+                  return id && !viewedIds.includes(id);
+                }).length > 0 && (
+                  <span className="flex items-center gap-1 px-2 py-0.5 bg-red-500/20 border border-red-500/40 rounded-full text-[10px] font-black text-red-400 animate-pulse">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
+                    {violations.filter(v => {
+                      const id = v.id || v.detection_id || v.timestamp;
+                      return id && !viewedIds.includes(id);
+                    }).length} NEW
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {violations.filter(v => {
+                  const id = v.id || v.detection_id || v.timestamp;
+                  return id && !viewedIds.includes(id);
+                }).length > 0 && (
+                  <button
+                    onClick={handleMarkAllAsViewed}
+                    className="text-[10px] font-bold text-muted hover:text-white px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer border border-white/5"
+                    title="Mark all alerts as viewed"
+                  >
+                    <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="hidden sm:inline">Mark read</span>
+                  </button>
+                )}
+                <div className="px-2.5 py-1 bg-accent/10 border border-accent/20 rounded-full">
+                  <span className="text-[10px] font-bold text-accent uppercase tracking-wider">
+                    {violations.length} recent
+                  </span>
+                </div>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto pr-1 sm:pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
               <ViolationList
                 violations={violations}
-                onViewImage={setSelectedViolation}
+                onViewImage={handleViewViolation}
+                viewedIds={viewedIds}
+                onMarkViewed={markViolationAsViewed}
               />
             </div>
           </div>
