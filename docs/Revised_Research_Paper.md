@@ -414,10 +414,10 @@ This study employs a **Developmental Research Design** focusing on the engineeri
 
 ```mermaid
 graph TD
-    A[1. System Analysis & Requirements Gathering] --> B[2. System Design & Algorithmic Modeling]
-    B --> C[3. Data Preprocessing & Model Training]
-    C --> D[4. Implementation & System Integration]
-    D --> E[5. Testing, Field Evaluation & Deployment]
+    A["1. System Analysis & Requirements Gathering"] --> B["2. System Design & Algorithmic Modeling"]
+    B --> C["3. Data Preprocessing & Model Training"]
+    C --> D["4. Implementation & System Integration"]
+    D --> E["5. Testing, Field Evaluation & Deployment"]
 ```
 
 **Figure 2-1. Waterfall Development Model Lifecycle**
@@ -438,19 +438,19 @@ System architecture and data flows were formalized through standard modeling dia
 
 ```mermaid
 graph TD
-    ActorAdmin((Super Admin))
-    ActorOfficer((TMC Officer))
+    ActorAdmin(("Super Admin"))
+    ActorOfficer(("TMC Officer"))
 
-    subgraph TMC Yellow Box System
-        UC1[View Live Annotated Video Feed]
-        UC2[Receive Real-Time Audio-Visual Alerts]
-        UC3[Inspect Violation Evidence Dossier]
-        UC4[Filter & Search Historical Logs]
-        UC5[Export Official PDF Reports with Signatories]
-        UC6[Configure Yellow Box 4-Point Polygon]
-        UC7[Run Hardware Readiness Scanner]
-        UC8[Toggle ALPR / OCR Engine]
-        UC9[Manage User Accounts & Roles]
+    subgraph TMC_System ["TMC Yellow Box System"]
+        UC1["View Live Annotated Video Feed"]
+        UC2["Receive Real-Time Audio-Visual Alerts"]
+        UC3["Inspect Violation Evidence Dossier"]
+        UC4["Filter & Search Historical Logs"]
+        UC5["Export Official PDF Reports with Signatories"]
+        UC6["Configure Yellow Box 4-Point Polygon"]
+        UC7["Run Hardware Readiness Scanner"]
+        UC8["Toggle ALPR / OCR Engine"]
+        UC9["Manage User Accounts & Roles"]
     end
 
     ActorOfficer --> UC1
@@ -476,17 +476,17 @@ graph TD
 
 ```mermaid
 graph TD
-    Camera[CCTV Video Input] -->|Raw Video Frames| StreamEngine[Video Stream Ingest Engine]
-    StreamEngine -->|Frame Array| AIModule[YOLO Object Detector]
-    AIModule -->|BBoxes & Classes| Tracker[Centroid Tracker Engine]
-    Tracker -->|Vehicle ID & Centroid| SpatialEngine[Ray-Casting PIP Validator]
-    Config[(Zone Config File)] -->|Polygon Coords| SpatialEngine
-    SpatialEngine -->|Contained Status| DwellTimer[Dwell-Time Accumulator]
-    DwellTimer -->|Dwell > Threshold| SnapshotEngine[Evidence Snapshot & ALPR Engine]
-    SnapshotEngine -->|Violation Record| Database[(SQLite Database)]
-    Database -->|Query Data| APIBackend[Flask REST API Server]
-    APIBackend -->|JSON & Long-Poll Alerts| Dashboard[React Command Dashboard]
-    Dashboard -->|PDF Generation Request| ReportEngine[PDF Report Generator]
+    Camera["CCTV Video Input"] -->|"Raw Video Frames"| StreamEngine["Video Stream Ingest Engine"]
+    StreamEngine -->|"Frame Array"| AIModule["YOLO Object Detector"]
+    AIModule -->|"BBoxes & Classes"| Tracker["Centroid Tracker Engine"]
+    Tracker -->|"Vehicle ID & Centroid"| SpatialEngine["Ray-Casting PIP Validator"]
+    Config[("Zone Config File")] -->|"Polygon Coords"| SpatialEngine
+    SpatialEngine -->|"Contained Status"| DwellTimer["Dwell-Time Accumulator"]
+    DwellTimer -->|"Dwell >= Threshold"| SnapshotEngine["Evidence Snapshot & ALPR Engine"]
+    SnapshotEngine -->|"Violation Record"| Database[("SQLite Database")]
+    Database -->|"Query Data"| APIBackend["Flask REST API Server"]
+    APIBackend -->|"JSON & Live Alerts"| Dashboard["React Command Dashboard"]
+    Dashboard -->|"PDF Request"| ReportEngine["PDF Report Generator"]
 ```
 
 **Figure 4-1. Level-1 Data Flow Diagram (DFD)**
@@ -495,49 +495,54 @@ graph TD
 
 ```mermaid
 graph TB
-    subgraph SENSING LAYER
-        C1[HD CCTV Camera 0]
-        C2[HD CCTV Camera 1]
-        C3[Custom RTSP / Test Video]
+    subgraph SensingLayer ["SENSING LAYER"]
+        C1["HD CCTV Camera 0"]
+        C2["HD CCTV Camera 1"]
+        C3["Custom RTSP / Test Video"]
     end
 
-    subgraph EDGE AI PROCESSING LAYER
-        VIn[OpenCV Video Stream Handler]
-        YOLO[YOLOv8 Object Detector]
-        Tracker[Centroid Multi-Object Tracker]
-        PIP[Ray-Casting Spatial Engine]
-        OCR[EasyOCR ALPR Subsystem]
-        HScan[Hardware Readiness Scanner]
+    subgraph EdgeAI ["EDGE AI PROCESSING LAYER"]
+        VIn["OpenCV Video Stream Handler"]
+        YOLO["YOLOv8 Object Detector"]
+        Tracker["Centroid Multi-Object Tracker"]
+        PIP["Ray-Casting Spatial Engine"]
+        OCR["EasyOCR ALPR Subsystem"]
+        HScan["Hardware Readiness Scanner"]
     end
 
-    subgraph DATA LAYER
-        DB[(SQLite Embedded DB)]
-        MediaStore[(Violation Snapshot Disk Storage)]
+    subgraph DataLayer ["DATA LAYER"]
+        DB[("SQLite Embedded DB")]
+        MediaStore[("Violation Snapshot Disk Storage")]
     end
 
-    subgraph APPLICATION & API LAYER
-        Flask[Flask REST Server]
-        EventBus[Threading Event Notifier]
+    subgraph AppLayer ["APPLICATION & API LAYER"]
+        Flask["Flask REST Server"]
+        EventBus["Threading Event Notifier"]
     end
 
-    subgraph CLIENT COMMAND CENTER
-        ReactUI[React 19 SPA Dashboard]
-        LiveStream[MJPEG Video Viewer]
-        LiveAlerts[Live Alerts Feed Component]
-        Reports[Analytics & PDF Reporting Engine]
+    subgraph ClientCenter ["CLIENT COMMAND CENTER"]
+        ReactUI["React 19 SPA Dashboard"]
+        LiveStream["MJPEG Video Viewer"]
+        LiveAlerts["Live Alerts Feed Component"]
+        Reports["Analytics & PDF Reporting Engine"]
     end
 
-    SENSING LAYER --> VIn
-    VIn --> YOLO --> Tracker --> PIP
-    PIP -->|Violation| OCR
-    PIP -->|Violation| MediaStore
+    C1 --> VIn
+    C2 --> VIn
+    C3 --> VIn
+    VIn --> YOLO
+    YOLO --> Tracker
+    Tracker --> PIP
+    PIP -->|"Violation"| OCR
+    PIP -->|"Violation"| MediaStore
     OCR --> DB
     HScan --> Flask
     Flask --> DB
     Flask --> EventBus
     EventBus --> LiveAlerts
     Flask --> LiveStream
-    DB --> Flask --> ReactUI
+    DB --> Flask
+    Flask --> ReactUI
 ```
 
 **Figure 5-1. System Architecture Diagram**
@@ -617,7 +622,7 @@ erDiagram
 
 - **Stop Duration Measurement**:
   If a tracked vehicle's centroid displacement $\Delta d < \epsilon_{\text{movement}}$ (where $\epsilon = 4.0\text{ px}$) between consecutive frames while $P_{\text{ref}} \in V$:
-  $$\Delta t_{\text{stop}} = t_{\text{current}} - t_{\text{entry\_stop}}$$
+  $$\Delta t_{\text{stop}} = t_{\text{current}} - t_{\text{entry}}$$
   If $\Delta t_{\text{stop}} \ge T_{\text{threshold}}$ (where $T_{\text{threshold}} = 3.0\text{ seconds}$), an infraction is confirmed.
 
 ##### Phase 5: System Integration, Security & Dashboard Implementation
