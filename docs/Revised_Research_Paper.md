@@ -301,36 +301,43 @@ This study addresses this gap by developing a localized, complete system that in
 ### 2.4 Concept of the Study (Conceptual Framework)
 
 ```mermaid
-graph LR
-    subgraph INPUT
-        A[CCTV Video Stream / 1080p Camera]
-        B[User-Defined Yellow Box Zone Polygon]
-        C[Configurable Stop-Time Threshold e.g., 3.0s]
+flowchart LR
+    subgraph INPUT ["INPUT"]
+        A["CCTV Video Stream / 1080p Camera"]
+        B["User-Defined Yellow Box Zone Polygon"]
+        C["Configurable Stop-Time Threshold (e.g., 3.0s)"]
     end
 
-    subgraph PROCESS
-        D[YOLOv8/v5 Deep Learning Detection]
-        E[Centroid Multi-Object Tracking ID]
-        F[Ray-Casting Point-in-Polygon Check]
-        G[Temporal Dwell-Time Accumulator]
-        H[ALPR / Plate & Color Extraction]
-        I[Automated Evidence Snapshot Capture]
+    subgraph PROCESS ["PROCESS"]
+        D["YOLOv8/v5 Deep Learning Detection"]
+        E["Centroid Multi-Object Tracking ID"]
+        F["Ray-Casting Point-in-Polygon Check"]
+        G["Temporal Dwell-Time Accumulator"]
+        H["ALPR / Plate & Color Extraction"]
+        I["Automated Evidence Snapshot Capture"]
     end
 
-    subgraph OUTPUT
-        J[Real-Time Live Video Feed with Overlays]
-        K[Live Audio-Visual Violation Alerts]
-        L[NCAP-Compliant SQLite Evidence Database]
-        M[Interactive TMC Command Dashboard]
-        N[Exportable Formal PDF Violation Reports]
+    subgraph OUTPUT ["OUTPUT"]
+        J["Real-Time Live Video Feed with Overlays"]
+        K["Live Audio-Visual Violation Alerts"]
+        L["NCAP-Compliant SQLite Evidence Database"]
+        M["Interactive TMC Command Dashboard"]
+        N["Exportable Formal PDF Violation Reports"]
     end
 
     A --> D
     B --> F
     C --> G
-    D --> E --> F --> G
-    G -->|Threshold Exceeded| H --> I
-    I --> J & K & L & M & N
+    D --> E
+    E --> F
+    F --> G
+    G -->|"Threshold Exceeded"| H
+    H --> I
+    I --> J
+    I --> K
+    I --> L
+    I --> M
+    I --> N
 ```
 
 **Figure 1-1. Conceptual Framework of the AI-Powered Vehicle Yellow Box Monitoring System (IPO Model)**
@@ -413,7 +420,7 @@ This study employs a **Developmental Research Design** focusing on the engineeri
 #### 3.2.2 Process Model (Waterfall Lifecycle)
 
 ```mermaid
-graph TD
+flowchart TD
     A["1. System Analysis & Requirements Gathering"] --> B["2. System Design & Algorithmic Modeling"]
     B --> C["3. Data Preprocessing & Model Training"]
     C --> D["4. Implementation & System Integration"]
@@ -437,11 +444,15 @@ System architecture and data flows were formalized through standard modeling dia
 **1. Use Case Diagram (Figure 3-1)**: Outlines interactions between the system actors (Super Admin, TMC Officer) and system functions (Live Monitoring, Alert Review, Zone Configuration, Report Generation, Hardware Diagnostics).
 
 ```mermaid
-graph TD
-    ActorAdmin(("Super Admin"))
-    ActorOfficer(("TMC Officer"))
+flowchart LR
+    subgraph Actors ["System Actors"]
+        direction TB
+        ActorAdmin(["Super Admin"])
+        ActorOfficer(["TMC Officer"])
+    end
 
-    subgraph TMC_System ["TMC Yellow Box System"]
+    subgraph TMC_System ["TMC Yellow Box Monitoring System"]
+        direction TB
         UC1["View Live Annotated Video Feed"]
         UC2["Receive Real-Time Audio-Visual Alerts"]
         UC3["Inspect Violation Evidence Dossier"]
@@ -475,14 +486,14 @@ graph TD
 **2. Data Flow Diagram (DFD Level-1) (Figure 4-1)**: Traces the flow of data from camera video stream through the detection module, spatial verification engine, database repository, and web UI.
 
 ```mermaid
-graph TD
+flowchart TD
     Camera["CCTV Video Input"] -->|"Raw Video Frames"| StreamEngine["Video Stream Ingest Engine"]
     StreamEngine -->|"Frame Array"| AIModule["YOLO Object Detector"]
     AIModule -->|"BBoxes & Classes"| Tracker["Centroid Tracker Engine"]
     Tracker -->|"Vehicle ID & Centroid"| SpatialEngine["Ray-Casting PIP Validator"]
     Config[("Zone Config File")] -->|"Polygon Coords"| SpatialEngine
     SpatialEngine -->|"Contained Status"| DwellTimer["Dwell-Time Accumulator"]
-    DwellTimer -->|"Dwell >= Threshold"| SnapshotEngine["Evidence Snapshot & ALPR Engine"]
+    DwellTimer -->|"Dwell Exceeds Threshold"| SnapshotEngine["Evidence Snapshot & ALPR Engine"]
     SnapshotEngine -->|"Violation Record"| Database[("SQLite Database")]
     Database -->|"Query Data"| APIBackend["Flask REST API Server"]
     APIBackend -->|"JSON & Live Alerts"| Dashboard["React Command Dashboard"]
@@ -494,7 +505,7 @@ graph TD
 **3. System Architecture Diagram (Figure 5-1)**: Displays the physical and logical integration of hardware, edge backend services, and web client.
 
 ```mermaid
-graph TB
+flowchart TD
     subgraph SensingLayer ["SENSING LAYER"]
         C1["HD CCTV Camera 0"]
         C2["HD CCTV Camera 1"]
@@ -533,16 +544,16 @@ graph TB
     VIn --> YOLO
     YOLO --> Tracker
     Tracker --> PIP
-    PIP -->|"Violation"| OCR
-    PIP -->|"Violation"| MediaStore
+    PIP -->|"Violation Flag"| OCR
+    PIP -->|"Violation Flag"| MediaStore
     OCR --> DB
     HScan --> Flask
-    Flask --> DB
+    DB -->|"Data Sync"| Flask
     Flask --> EventBus
     EventBus --> LiveAlerts
     Flask --> LiveStream
-    DB --> Flask
     Flask --> ReactUI
+    Flask --> Reports
 ```
 
 **Figure 5-1. System Architecture Diagram**
