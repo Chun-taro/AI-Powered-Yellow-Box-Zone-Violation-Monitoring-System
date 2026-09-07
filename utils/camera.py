@@ -131,13 +131,16 @@ class CameraHandler:
                 time.sleep(0.1)
 
     def read_frame(self):
-        """Returns the most recent frame and handles resizing to config dimensions"""
+        """Returns the most recent frame, skipping costly resize if dimensions already match"""
         if self.use_placeholder or self.frame is None:
             return self.get_placeholder_frame()
 
-        # Resize frame to match config
-        h = getattr(config, 'FRAME_HEIGHT', 480)
-        w = getattr(config, 'FRAME_WIDTH', 640)
+        # Resize frame to match config only when dimensions differ
+        h = getattr(config, 'FRAME_HEIGHT', 720)
+        w = getattr(config, 'FRAME_WIDTH', 1280)
+        fh, fw = self.frame.shape[:2]
+        if fh == h and fw == w:
+            return self.frame
         return cv2.resize(self.frame, (w, h))
 
     def get_placeholder_frame(self):

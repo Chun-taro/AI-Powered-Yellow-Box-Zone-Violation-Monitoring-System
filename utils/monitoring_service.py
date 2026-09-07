@@ -8,11 +8,12 @@ from datetime import datetime
 from config.config import config
 from utils.camera import CameraHandler
 from ai_model.detect import VehicleDetector
-from ai_model.tracker import CentroidTracker
+from ai_model.tracker import CentroidTracker, compute_iou
 from ai_model.lpr import lpr_reader, crop_plate_region
 from database.database import Database
 import math
 import csv
+from concurrent.futures import ThreadPoolExecutor
 
 class MonitoringService:
     _instance = None
@@ -56,6 +57,8 @@ class MonitoringService:
         self.vehicle_confidences = {}
         self.vehicle_loading_status = {}
         self.cached_plates = {}  # {obj_id: plate_number} - Temporary cache while in yellowbox
+        self.pending_lpr_ids = set()
+        self.lpr_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="LPR_Worker")
         
         self.fps_current = 0
         self.fps_ai = 0
@@ -254,10 +257,17 @@ class MonitoringService:
                         color = (0, 165, 255) # Orange
                     
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
-                    cv2.putText(frame, f"{self.vehicle_types.get(obj_id, 'car')} ID:{obj_id}", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+                    cv2.putText(frame, f"Vehicle #{obj_id}", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
                 for p in self.current_persons:
-                    cv2.rectangle(frame, (p[0], p[1]), (p[2], p[3]), (0, 255, 0), 1)
+                    px1, py1, px2, py2 = p[0], p[1], p[2], p[3]
+                    status = p[7] if len(p) > 7 else 'pedestrian'
+                    if status == 'boarding':
+                        cv2.rectangle(frame, (px1, py1), (px2, py2), (255, 255, 0), 2)
+                        cv2.putText(frame, "Boarding/Alighting", (px1, max(15, py1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
+                    else:
+                        cv2.rectangle(frame, (px1, py1), (px2, py2), (0, 255, 0), 1)
+                        cv2.putText(frame, "Pedestrian", (px1, max(15, py1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1)
                 
                 # (Counters removed from frame - now displayed in UI)
                 
@@ -268,8 +278,8 @@ class MonitoringService:
                 if res:
                     self.latest_frame = buffer.tobytes()
                 
-                # Maintain target FPS to avoid playback being too fast
-                target_delay = 1.0 / getattr(config, 'FPS', 30)
+                # Maintain target FPS to match hardware capability (60 FPS)
+                target_delay = 1.0 / getattr(config, 'FPS', 60)
                 elapsed_loop = time.time() - current_time
                 sleep_time = max(0.001, target_delay - elapsed_loop)
                 time.sleep(sleep_time) 
@@ -483,14 +493,18 @@ class MonitoringService:
             return True
         try:
             pts = self.yellow_zone.reshape(-1, 2)
-            # Find the two left-most vertices of the yellow zone
-            sorted_by_x = pts[pts[:, 0].argsort()]
-            left_pts = sorted_by_x[:2]
+            # Sort vertices by Y to separate top points (far road) from bottom points (near road)
+            sorted_by_y = pts[pts[:, 1].argsort()]
+            top_two = sorted_by_y[:2]
+            bottom_two = sorted_by_y[2:]
             
-            # Sort top to bottom
-            pt1, pt2 = left_pts[left_pts[:, 1].argsort()]
-            x_tl, y_tl = float(pt1[0]), float(pt1[1])
-            x_bl, y_bl = float(pt2[0]), float(pt2[1])
+            # In top two, smaller x is top-left
+            top_left = top_two[top_two[:, 0].argsort()][0]
+            # In bottom two, smaller x is bottom-left
+            bottom_left = bottom_two[bottom_two[:, 0].argsort()][0]
+            
+            x_tl, y_tl = float(top_left[0]), float(top_left[1])
+            x_bl, y_bl = float(bottom_left[0]), float(bottom_left[1])
             
             if abs(y_bl - y_tl) > 1e-3:
                 t = (y - y_tl) / (y_bl - y_tl)
@@ -502,6 +516,85 @@ class MonitoringService:
             return x >= (boundary_x - margin)
         except Exception:
             return True
+
+    def _classify_person_relation(self, px1, py1, px2, py2, vehicle_boxes):
+        """
+        Determines whether a detected person is:
+        - 'inside': Seated passenger/driver or motorcycle rider/passenger (SUPPRESSED).
+        - 'boarding': Entering or exiting vehicle (crossing door/step boundary).
+        - 'pedestrian': Walking outside on sidewalk/street.
+        
+        Returns:
+            tuple: (status, matched_vehicle_box_or_none)
+        """
+        pw = max(1, px2 - px1)
+        ph = max(1, py2 - py1)
+        p_area = float(pw * ph)
+        pcx = (px1 + px2) // 2
+        pcy = (py1 + py2) // 2
+
+        best_status = 'pedestrian'
+        best_v_box = None
+
+        for v_box in vehicle_boxes:
+            vx1, vy1, vx2, vy2 = v_box[:4]
+            v_type = v_box[4] if len(v_box) > 4 else 'car'
+            vw = max(1, vx2 - vx1)
+            vh = max(1, vy2 - vy1)
+
+            # Bounding box intersection
+            ix1 = max(px1, vx1)
+            iy1 = max(py1, vy1)
+            ix2 = min(px2, vx2)
+            iy2 = min(py2, vy2)
+            iw = max(0, ix2 - ix1)
+            ih = max(0, iy2 - iy1)
+            inter_area = float(iw * ih)
+            overlap_ratio = inter_area / p_area
+
+            # Spatial distance from person to vehicle perimeter
+            dist_x = max(0, max(vx1 - px2, px1 - vx2))
+            dist_y = max(0, max(vy1 - py2, py1 - vy2))
+            edge_dist = math.hypot(dist_x, dist_y)
+
+            is_horiz_aligned = (pcx >= vx1 - 25) and (pcx <= vx2 + 25)
+            is_vert_overlapping = (py2 >= vy1) and (py1 <= vy2)
+
+            # 1. MOTORCYCLE RIDER & PILLION PASSENGER (Always suppress - not pedestrians or boarding)
+            if v_type == 'motorcycle':
+                if overlap_ratio >= 0.15 or (is_horiz_aligned and is_vert_overlapping):
+                    return 'inside', v_box
+
+            # 2. SEATED PASSENGER / DRIVER INSIDE 4-WHEEL VEHICLE
+            is_feet_on_ground_or_step = py2 >= (vy2 - 0.20 * vh)
+            is_in_cabin = (pcx >= vx1 - 10) and (pcx <= vx2 + 10) and (pcy >= vy1) and (pcy <= vy2)
+
+            if (overlap_ratio >= 0.50 and not is_feet_on_ground_or_step) or \
+               (overlap_ratio >= 0.75) or \
+               (is_in_cabin and not is_feet_on_ground_or_step):
+                best_status = 'inside'
+                best_v_box = v_box
+                continue
+
+            # 3. BOARDING / ALIGHTING (Stepping in/out through doorway/step onto road)
+            is_vertically_aligned = (pcy >= vy1 - 25) and (pcy <= vy2 + 35)
+            is_at_doorway_side = pcx >= (vx1 + 0.30 * vw)
+            if is_vertically_aligned and is_feet_on_ground_or_step and is_at_doorway_side:
+                if (0.12 <= overlap_ratio <= 0.85) or (edge_dist <= 35):
+                    return 'boarding', v_box
+
+        return best_status, best_v_box
+
+    def _async_lpr_worker(self, obj_id, plate_crop, v_crop):
+        """Runs OCR in background worker thread without blocking the AI or stream loops."""
+        try:
+            read_p = lpr_reader.read_plate(plate_crop, full_vehicle_crop=v_crop)
+            if read_p:
+                self.cached_plates[obj_id] = read_p
+        except Exception as e:
+            logging.debug(f"Async LPR worker error: {e}")
+        finally:
+            self.pending_lpr_ids.discard(obj_id)
 
     def _ai_loop(self):
         """Asynchronous AI detection loop to prevent visual lag."""
@@ -541,19 +634,16 @@ class MonitoringService:
                     detections_raw = self.detector.detect(frame)
                     
                     class_names = {0: 'person', 2: 'car', 3: 'motorcycle', 5: 'bus', 7: 'truck'}
-                    detections_for_tracker = []
-                    bbox_to_label = {}
-                    bbox_to_conf = {}
-                    person_count = 0
-                    vehicle_count = 0
-                    current_persons = []
+                    raw_vehicles = []
+                    raw_persons = []
                     
                     for detection in detections_raw:
                         cls_id = detection['class']
                         conf = detection['confidence']
                         if cls_id not in class_names: continue
-                        label = class_names[cls_id]
-                        if label in ['truck', 'bus', 'vehicle', 'motorcycle']: label = 'car'
+                        raw_label = class_names[cls_id]
+                        label = 'car' if raw_label in ['truck', 'bus', 'vehicle', 'motorcycle'] else raw_label
+                        v_type = raw_label  # Preserves exact type ('motorcycle', 'car', etc.)
                         x1, y1, x2, y2 = map(int, detection['bbox'])
                         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
                         
@@ -562,46 +652,112 @@ class MonitoringService:
                         # Completely ignore any vehicle, motorcycle, or pedestrian on the
                         # left side or center lane of the road.
                         # -----------------------------------------------------------------
-                        if not self._is_on_right_side(cx, cy, margin=40) and not self._is_on_right_side(x2, cy, margin=40):
-                            continue
-                        
-                        # 1. Detection logic for vehicles (PRIORITY)
                         if label == 'car':
-                            is_in_zone = False
-                            if self.yellow_zone is not None:
-                                test_pt1 = (float(cx), float(cy))
-                                test_pt2 = (float(cx), float(y2))
-                                test_pt3 = (float(cx), float(y1 + (y2 - y1) * 0.75))
-                                is_in_zone = cv2.pointPolygonTest(self.yellow_zone, test_pt1, False) >= 0 or \
-                                             cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
-                                             cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0
-                            else:
-                                is_in_zone = True
-                            
-                            if is_in_zone:
-                                vehicle_count += 1
-                                rect = (x1, y1, x2, y2)
-                                detections_for_tracker.append(rect)
-                                bbox_to_label[rect] = label
-                                bbox_to_conf[rect] = conf
-                        
-                        # 2. Detection logic for persons (Strictly right-side sidewalk / boarding area)
+                            if not self._is_on_right_side(cx, cy, margin=35) and not self._is_on_right_side(x2, cy, margin=35):
+                                continue
+                            raw_vehicles.append((x1, y1, x2, y2, cx, cy, conf, label, v_type))
                         elif label == 'person':
                             if conf < 0.25: continue
-
-                            # Person must be strictly on the right side of the angled road boundary
-                            if not self._is_on_right_side(cx, cy, margin=15):
+                            # STRICT: Person MUST be on or to the right of the angled left boundary
+                            if not self._is_on_right_side(cx, cy, margin=0) and not self._is_on_right_side(x2, cy, margin=0):
                                 continue
+                            raw_persons.append((x1, y1, x2, y2, cx, cy, conf))
 
-                            # Only track pedestrians within yellow zone or right sidewalk
+                    # Deduplicate overlapping vehicle detections (NMS)
+                    # Only deduplicates duplicate bounding boxes of the SAME vehicle at the SAME depth,
+                    # NEVER dropping distinct vehicles at different depths along the lane.
+                    if len(raw_vehicles) > 1:
+                        raw_vehicles_sorted = sorted(raw_vehicles, key=lambda x: x[6], reverse=True)
+                        deduped_vehicles = []
+                        for rv in raw_vehicles_sorted:
+                            box_a = [rv[0], rv[1], rv[2], rv[3]]
+                            area_a = max(1, (box_a[2] - box_a[0]) * (box_a[3] - box_a[1]))
+                            is_dup = False
+                            for dk in deduped_vehicles:
+                                box_b = [dk[0], dk[1], dk[2], dk[3]]
+                                area_b = max(1, (box_b[2] - box_b[0]) * (box_b[3] - box_b[1]))
+                                
+                                # Road contact difference (Depth check)
+                                y2_diff = abs(box_a[3] - box_b[3])
+                                iou = compute_iou(box_a, box_b)
+                                
+                                inter_w = max(0, min(box_a[2], box_b[2]) - max(box_a[0], box_b[0]))
+                                inter_h = max(0, min(box_a[3], box_b[3]) - max(box_a[1], box_b[1]))
+                                containment = float(inter_w * inter_h) / min(area_a, area_b)
+                                
+                                # Two boxes are duplicates of the SAME vehicle ONLY if they share the same road contact (depth)
+                                # AND have either high IoU (> 0.65) or high containment (> 0.85)
+                                if y2_diff <= 28 and (iou > 0.65 or containment > 0.85):
+                                    is_dup = True
+                                    break
+                            if not is_dup:
+                                deduped_vehicles.append(rv)
+                        raw_vehicles = deduped_vehicles
+
+                    # 1. Process all detected vehicles
+                    detections_for_tracker = []
+                    bbox_to_label = {}
+                    bbox_to_conf = {}
+                    vehicle_count = 0
+                    vehicle_boxes_all = []
+
+                    for v in raw_vehicles:
+                        vx1, vy1, vx2, vy2, vcx, vcy, vconf, vlabel, vtype = v
+                        vehicle_boxes_all.append((vx1, vy1, vx2, vy2, vtype))
+                        
+                        is_in_zone = False
+                        if self.yellow_zone is not None:
+                            test_pt1 = (float(vcx), float(vcy))
+                            test_pt2 = (float(vcx), float(vy2))
+                            test_pt3 = (float(vcx), float(vy1 + (vy2 - vy1) * 0.75))
+                            is_in_zone = cv2.pointPolygonTest(self.yellow_zone, test_pt1, False) >= 0 or \
+                                         cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
+                                         cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0
+                        else:
+                            is_in_zone = True
+                        
+                        if is_in_zone:
+                            vehicle_count += 1
+                            rect = (vx1, vy1, vx2, vy2)
+                            detections_for_tracker.append(rect)
+                            bbox_to_label[rect] = vlabel
+                            bbox_to_conf[rect] = vconf
+
+                    # 2. Process persons with spatial passenger suppression & boarding detection
+                    person_count = 0
+                    current_persons = []
+
+                    for p in raw_persons:
+                        px1, py1, px2, py2, pcx, pcy, pconf = p
+                        p_status, matched_vbox = self._classify_person_relation(px1, py1, px2, py2, vehicle_boxes_all)
+                        
+                        # Case A: Passenger / driver seated inside vehicle cabin OR on motorcycle -> SUPPRESS
+                        if p_status == 'inside':
+                            continue
+
+                        # Strict check: Person must be strictly on or to the right of the yellow boundary
+                        if not self._is_on_right_side(pcx, pcy, margin=0):
+                            continue
+
+                        # Case B: Boarding or Alighting (Stepping in/out through door/step)
+                        if p_status == 'boarding':
                             if self.yellow_zone is not None:
-                                dist_to_zone = cv2.pointPolygonTest(self.yellow_zone, (float(cx), float(cy)), True)
+                                dist_to_zone = cv2.pointPolygonTest(self.yellow_zone, (float(pcx), float(pcy)), True)
+                                if dist_to_zone >= -90:
+                                    current_persons.append((px1, py1, px2, py2, pcx, pcy, pconf, 'boarding'))
+                            else:
+                                current_persons.append((px1, py1, px2, py2, pcx, pcy, pconf, 'boarding'))
+
+                        # Case C: Outside Pedestrian on sidewalk or crossing street
+                        elif p_status == 'pedestrian':
+                            if self.yellow_zone is not None:
+                                dist_to_zone = cv2.pointPolygonTest(self.yellow_zone, (float(pcx), float(pcy)), True)
                                 if dist_to_zone >= -70: # strictly inside zone or right adjacent sidewalk
                                     person_count += 1
-                                    current_persons.append((x1, y1, x2, y2, cx, cy, conf))
+                                    current_persons.append((px1, py1, px2, py2, pcx, pcy, pconf, 'pedestrian'))
                             else:
                                 person_count += 1
-                                current_persons.append((x1, y1, x2, y2, cx, cy, conf))
+                                current_persons.append((px1, py1, px2, py2, pcx, pcy, pconf, 'pedestrian'))
 
                     # Tracking Update
                     self.tracked_objects_map = self.tracker.update(detections_for_tracker)
@@ -618,6 +774,67 @@ class MonitoringService:
                     self.person_count = person_count
                     self.vehicle_count = vehicle_count
                     self.current_persons = current_persons
+
+                    # ---------------------------------------------------------
+                    # TARGETED BEST-VEHICLE PASSENGER ASSOCIATION:
+                    # Associates each boarding/loading person with EXACTLY ONE
+                    # vehicle based on ground contact (depth), doorway proximity,
+                    # and spatial affinity.
+                    # This ensures that if a person loads into a closer Vehicle #2,
+                    # ONLY Vehicle #2's loading timer resets, and Vehicle #1's
+                    # timer continues uninterrupted even if bounding boxes overlap.
+                    # ---------------------------------------------------------
+                    active_loading_vehicles = set()
+                    for p_data in current_persons:
+                        px1, py1, px2, py2, pcx, pcy, pconf = p_data[:7]
+                        pstatus = p_data[7] if len(p_data) > 7 else 'pedestrian'
+                        p_area = max(1, (px2 - px1) * (py2 - py1))
+
+                        best_vid = None
+                        best_score = -1e9
+
+                        for vid, (_, v_bbox) in self.tracked_objects_map.items():
+                            vx1, vy1, vx2, vy2 = v_bbox[:4]
+                            vw = max(1, vx2 - vx1)
+                            vh = max(1, vy2 - vy1)
+
+                            # 1. Depth & Road Contact Gate:
+                            # Person must stand at the road depth of THIS vehicle
+                            ground_diff = abs(py2 - vy2)
+                            if ground_diff > (0.32 * vh):
+                                continue  # Reject: Person is at a different depth (e.g. at closer vehicle, not farther vehicle)
+
+                            # 2. Doorway & Proximity evaluation
+                            dist_x = max(0, max(vx1 - px2, px1 - vx2))
+                            dist_y = max(0, max(vy1 - py2, py1 - vy2))
+                            edge_dist = math.hypot(dist_x, dist_y)
+
+                            inter_w = max(0, min(vx2, px2) - max(vx1, px1))
+                            inter_h = max(0, min(vy2, py2) - max(vy1, py1))
+                            has_overlap = (inter_w > 0) and (inter_h > 0)
+                            overlap_ratio = float(inter_w * inter_h) / p_area
+
+                            is_vertically_aligned = (pcy >= vy1 - 25) and (pcy <= vy2 + 35)
+                            is_at_doorway_side = (pcx >= vx1 + 0.25 * vw) or (pcy >= vy2 - 0.25 * vh)
+
+                            is_candidate = False
+                            if pstatus == 'boarding' and (has_overlap or edge_dist <= 45):
+                                is_candidate = True
+                            elif has_overlap and is_at_doorway_side:
+                                is_candidate = True
+                            elif edge_dist <= 35 and is_vertically_aligned and is_at_doorway_side:
+                                is_candidate = True
+
+                            if is_candidate:
+                                # Affinity score favors close ground contact and doorway proximity
+                                score = 100.0 - (ground_diff / float(vh) * 50.0) - (edge_dist / 45.0 * 30.0) + (overlap_ratio * 20.0)
+                                if score > best_score:
+                                    best_score = score
+                                    best_vid = vid
+
+                        if best_vid is not None:
+                            active_loading_vehicles.add(best_vid)
+                            self.vehicle_loading_status[best_vid] = current_time
 
                     # VIOLATION & DWELL TIMER LOGIC
                     current_frame_ids = set()
@@ -647,41 +864,25 @@ class MonitoringService:
                                 self.is_stopped_map[obj_id] = dist < 15
                                 self.movement_start_pos[obj_id] = (current_time, scx, scy)
                         
-                        # Right-Side Passenger Loading / Boarding Detection:
-                        # ONLY triggers when someone is DIRECTLY BESIDE (<=35px) the vehicle or going in/out
-                        for p_data in current_persons:
-                            px1, py1, px2, py2, pcx, pcy, pconf = p_data
-                            
-                            # 1. Bounding box intersection (stepping in/out of the vehicle doorway)
-                            inter_w = max(0, min(x2, px2) - max(x1, px1))
-                            inter_h = max(0, min(y2, py2) - max(y1, py1))
-                            has_overlap = (inter_w > 0) and (inter_h > 0)
-
-                            # 2. Directly beside the vehicle (touching/stepping on right side or rear step <= 35px)
-                            dist_x = max(0, max(x1 - px2, px1 - x2))
-                            dist_y = max(0, max(y1 - py2, py1 - y2))
-                            edge_dist = math.hypot(dist_x, dist_y)
-                            
-                            is_vertically_aligned = (pcy >= y1 - 25) and (pcy <= y2 + 35)
-
-                            if has_overlap or (edge_dist <= 35 and is_vertically_aligned):
-                                self.vehicle_loading_status[obj_id] = current_time
-
-                        # Active loading state: passenger going in/out within last 1.0 second
-                        is_loading = (current_time - self.vehicle_loading_status.get(obj_id, 0)) < 1.0
+                        # Active loading state: ONLY triggered if THIS vehicle was associated with an active boarding person
+                        is_loading = (obj_id in active_loading_vehicles) or ((current_time - self.vehicle_loading_status.get(obj_id, 0)) < 1.0)
 
                         # Yellow Box Zone Dwell Timer Logic
                         if is_in_zone:
-                            # Pre-capture LPR plate while inside yellow box zone (throttled)
+                            # Pre-capture LPR plate while inside yellow box zone ASYNCHRONOUSLY (Zero AI thread blocking)
                             if getattr(config, 'LPR_ENABLED', True) and (obj_id not in self.cached_plates or self.cached_plates[obj_id] is None):
-                                if ai_frames % 5 == 0:
+                                if obj_id not in self.pending_lpr_ids and (ai_frames % 5 == 0):
                                     try:
                                         plate_crop = crop_plate_region(frame, bbox)
                                         v_crop = frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
-                                        if plate_crop is not None:
-                                            read_p = lpr_reader.read_plate(plate_crop, full_vehicle_crop=v_crop)
-                                            if read_p:
-                                                self.cached_plates[obj_id] = read_p
+                                        if plate_crop is not None and plate_crop.size > 0:
+                                            self.pending_lpr_ids.add(obj_id)
+                                            self.lpr_executor.submit(
+                                                self._async_lpr_worker,
+                                                obj_id,
+                                                plate_crop.copy(),
+                                                v_crop.copy() if v_crop is not None else None
+                                            )
                                     except Exception:
                                         pass
 

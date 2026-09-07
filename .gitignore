@@ -27,5 +27,8 @@ static/violations/
 *.sqlite
 *.sqlite3
 
+# Executables and installers
+*.exe
+
 # Logs
 *.log

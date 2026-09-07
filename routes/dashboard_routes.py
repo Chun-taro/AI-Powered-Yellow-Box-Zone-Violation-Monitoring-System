@@ -202,7 +202,7 @@ def generate_frames():
             if frame_bytes:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-                time.sleep(0.033)  # Cap stream output to ~30 FPS per client
+                time.sleep(0.016)  # Cap stream output to ~60 FPS per client
             else:
                 time.sleep(0.1)
     except (GeneratorExit, ConnectionResetError, BrokenPipeError, OSError):

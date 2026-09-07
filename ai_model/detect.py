@@ -31,7 +31,9 @@ class VehicleDetector:
                 self.device = 0
                 self.half = False
                 gpu_name = torch.cuda.get_device_name(0)
-                logging.info(f"✓ AI Detector using GPU (CUDA: {gpu_name}) in reliable FP32 mode")
+                # Enable cuDNN benchmark mode for optimal GPU convolution algorithms
+                torch.backends.cudnn.benchmark = True
+                logging.info(f"✓ AI Detector using GPU (CUDA: {gpu_name}) in high-performance FP32 mode with cuDNN benchmark")
             except Exception as e:
                 logging.warning(f"CUDA device check error: {e}. Defaulting to CPU mode.")
                 self.device = 'cpu'
@@ -69,18 +71,19 @@ class VehicleDetector:
         if frame is None or frame.size == 0:
             return []
 
-        # Inference with YOLOv8
+        # High-performance inference with YOLOv8 using torch.inference_mode()
         try:
-            results = self.model(
-                frame, 
-                conf=self.conf_thres, 
-                iou=0.3, 
-                agnostic_nms=True, 
-                verbose=False, 
-                imgsz=640,
-                device=self.device,
-                half=self.half
-            )
+            with torch.inference_mode():
+                results = self.model(
+                    frame, 
+                    conf=self.conf_thres, 
+                    iou=0.3, 
+                    agnostic_nms=True, 
+                    verbose=False, 
+                    imgsz=640,
+                    device=self.device,
+                    half=self.half
+                )
         except Exception as e:
             # Handle CUDA error (e.g. illegal instruction or out of memory) by falling back to CPU
             if self.device != 'cpu':

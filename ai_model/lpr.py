@@ -5,8 +5,12 @@ Multi-Pass Preprocessing + OCR with Philippine Plate Pattern Disambiguation and 
 """
 import re
 import logging
+import warnings
 import cv2
 import numpy as np
+
+# Suppress PyTorch cuDNN LSTM non-contiguous memory compaction warning in EasyOCR
+warnings.filterwarnings('ignore', category=UserWarning, module='torch.nn.modules.rnn')
 
 try:
     import easyocr
@@ -15,12 +19,14 @@ except ImportError:
     EASYOCR_AVAILABLE = False
     logging.warning("EasyOCR not installed. LPR will be disabled. Run: pip install easyocr")
 
-# Background brand words and plate frame text to ignore
+# Background brand words, stickers, slogans, and plate frame text to ignore
 IGNORED_WORDS = {
     'PILIPINAS', 'PHILIPPINES', 'MATATAG', 'REPUBLIKA', 'REGION', 'NCR',
     'TOYOTA', 'HONDA', 'MITSUBISHI', 'ISUZU', 'SUZUKI', 'NISSAN', 'HYUNDAI',
     'FORD', 'CHEVROLET', 'MAZDA', 'KIA', 'VIOLATION', 'COLOR', 'PLATE',
-    'LTO', 'DAVAO', 'CEBU', 'MANILA', 'CAR', 'MOTORCYCLE', 'TRUCK', 'BUS'
+    'LTO', 'DAVAO', 'CEBU', 'MANILA', 'CAR', 'MOTORCYCLE', 'TRUCK', 'BUS',
+    'SAKAY', 'DISTANCE', 'KEEP', 'GARAY', 'SERVICE', 'EXPRESS', 'FORWARD',
+    'SHOHOKU', 'SLAM', 'DUNK', 'BASKETBALL', 'PASSENGER', 'ROUTE', 'PUJ'
 }
 
 DIGIT_TO_LETTER = {'0': 'O', '1': 'I', '2': 'Z', '4': 'A', '5': 'S', '6': 'G', '8': 'B', '7': 'T'}
@@ -41,7 +47,7 @@ def validate_philippine_plate(text):
     """
     Validate, correct common OCR character confusions, and format Philippine license plates.
     Standard formats:
-      - 3 letters + 3-4 numbers (e.g. ABC 1234, NGA 543)
+      - 3 letters + 3-4 numbers (e.g. KBA 5939, ABC 1234, NGA 543)
       - 2 letters + 4-5 numbers (Motorcycles / Commercial: AB 12345, LF 0764)
       - 4 numbers + 2 letters (Special / Vintage: 1234 AB)
       - 1 letter + 4-6 numbers (Fleet / Public: A 123456)
@@ -49,6 +55,12 @@ def validate_philippine_plate(text):
     cleaned = clean_ocr_text(text)
     if not cleaned or len(cleaned) < 4 or len(cleaned) > 9:
         return None
+
+    # Strip common leading/trailing border frame artifacts (e.g. '|', 'I', '1' detected from plate border)
+    # when trailing string forms a valid 3-letter + 3/4-digit plate (e.g. 'IKBA5939' -> 'KBA 5939')
+    if len(cleaned) in (7, 8) and cleaned[0] in ('I', '1', 'L') and re.match(r'^[A-Z]{3}\d{3,4}$', cleaned[1:]):
+        cand = cleaned[1:]
+        return f"{cand[:3]} {cand[3:]}"
 
     # 1. Exact Matches (No mutation)
     if re.match(r'^[A-Z]{3}\d{3,4}$', cleaned):
@@ -102,15 +114,13 @@ def validate_philippine_plate(text):
             if re.match(r'^\d{4}[A-Z]{2}$', p_cand):
                 return f"{p_cand[:4]} {p_cand[4:]}"
 
-    # 4. Generic Fallback for valid mixed alphanumeric series
-    if 4 <= len(cleaned) <= 8 and any(c.isalpha() for c in cleaned) and any(c.isdigit() for c in cleaned):
-        m = re.match(r'^([A-Z]+)(\d+)$', cleaned)
-        if m:
-            return f"{m.group(1)} {m.group(2)}"
-        m2 = re.match(r'^(\d+)([A-Z]+)$', cleaned)
-        if m2:
-            return f"{m2.group(1)} {m2.group(2)}"
-        return cleaned
+    # 4. Strict Philippine plate pattern fallback (strictly letters followed by digits)
+    m = re.match(r'^([A-Z]{2,3})(\d{3,4})$', cleaned)
+    if m:
+        return f"{m.group(1)} {m.group(2)}"
+    m2 = re.match(r'^(\d{3,4})([A-Z]{2,3})$', cleaned)
+    if m2:
+        return f"{m2.group(1)} {m2.group(2)}"
 
     return None
 
@@ -179,7 +189,9 @@ def preprocess_plate_variants(crop):
 
 def crop_plate_region(frame, bbox):
     """
-    Crop lower-center region of vehicle bounding box where license plate is positioned.
+    Crops specifically the lower bumper and rear-step region where vehicle license plates
+    are mounted (bottom ~32% of vehicle bounding box).
+    Excludes the upper body, roof, windows, and decorative stickers (e.g. SAKAY NA, KEEP DISTANCE).
 
     Args:
         frame: Full video frame (numpy array)
@@ -198,11 +210,12 @@ def crop_plate_region(frame, bbox):
     if bw <= 10 or bh <= 10:
         return None
 
-    # Focus on center 75% width and bottom 50% height
-    plate_y1 = max(0, int(y1 + bh * 0.45))
+    # Focus specifically on the lower bumper & step level (lowest 32% of vehicle)
+    # y from y1 + 0.68*bh down to y2 + 0.05*bh
+    plate_y1 = max(0, int(y1 + bh * 0.68))
     plate_y2 = min(h, int(y2 + bh * 0.05))
-    plate_x1 = max(0, int(x1 + bw * 0.12))
-    plate_x2 = min(w, int(x2 - bw * 0.12))
+    plate_x1 = max(0, int(x1 + bw * 0.04))
+    plate_x2 = min(w, int(x2 - bw * 0.04))
 
     if plate_y1 >= plate_y2 or plate_x1 >= plate_x2:
         return frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
@@ -232,6 +245,14 @@ class LicensePlateReader:
             import torch
             use_gpu = torch.cuda.is_available()
             self._reader = easyocr.Reader(['en'], gpu=use_gpu, verbose=False)
+            # Compact cuDNN RNN/LSTM weights to single contiguous memory chunk
+            if hasattr(self._reader, 'recognizer'):
+                try:
+                    for m in self._reader.recognizer.modules():
+                        if isinstance(m, torch.nn.RNNBase):
+                            m.flatten_parameters()
+                except Exception:
+                    pass
             self._ready = True
             logging.info(f"✓ LPR (EasyOCR) model loaded and ready (GPU Enabled: {use_gpu}).")
         except Exception as e:
@@ -264,9 +285,12 @@ class LicensePlateReader:
         # 1. Single token validation
         for _, text, conf in sorted_items:
             val = validate_philippine_plate(text)
-            if val and conf > best_score:
-                best_candidate = val
-                best_score = conf
+            if val:
+                # Bonus score for standard 3-letter + 4-digit Philippine format
+                score = conf + (0.35 if re.match(r'^[A-Z]{3} \d{3,4}$', val) else 0.0)
+                if score > best_score:
+                    best_candidate = val
+                    best_score = score
 
         # 2. Adjacent pairs validation (e.g. "LF" + "0764" or "ABC" + "1234")
         for i in range(len(sorted_items) - 1):
@@ -274,10 +298,12 @@ class LicensePlateReader:
             _, text2, conf2 = sorted_items[i + 1]
             merged = f"{text1} {text2}"
             val = validate_philippine_plate(merged)
-            avg_conf = (conf1 + conf2) / 2.0
-            if val and avg_conf > best_score:
-                best_candidate = val
-                best_score = avg_conf
+            if val:
+                avg_conf = (conf1 + conf2) / 2.0
+                score = avg_conf + (0.35 if re.match(r'^[A-Z]{3} \d{3,4}$', val) else 0.0)
+                if score > best_score:
+                    best_candidate = val
+                    best_score = score
 
         # 3. Full concatenated text validation
         all_text = " ".join([t for _, t, _ in sorted_items])
@@ -289,43 +315,63 @@ class LicensePlateReader:
 
     def read_plate(self, frame_crop, full_vehicle_crop=None):
         """
-        Read license plate text from a cropped vehicle region using multi-pass enhancement.
+        Read license plate text focusing strictly on the plate, bumper, and step region.
+        Excludes the upper vehicle body to prevent reading stickers, slogans, and logos.
 
         Args:
-            frame_crop: numpy array of the cropped plate or vehicle region
-            full_vehicle_crop: optional full vehicle bounding box crop for fallback
+            frame_crop: numpy array of the cropped plate or bumper region
+            full_vehicle_crop: optional full vehicle bounding box from which targeted bumper crops are extracted
 
         Returns:
-            str: Validated and formatted plate number (e.g. 'ABC 1234') or None if unreadable.
+            str: Validated and formatted plate number (e.g. 'KBA 5939') or None if unreadable.
         """
         if not self._ready or self._reader is None:
             return None
 
-        # Build candidate image list
+        # Build candidate image list focused strictly on the bumper and mounting areas
         candidate_crops = []
         if frame_crop is not None and frame_crop.size > 0:
             candidate_crops.append(frame_crop)
+
+        # If a full vehicle crop was provided, derive focused lower bumper/step candidate crops from it
         if full_vehicle_crop is not None and full_vehicle_crop.size > 0:
-            candidate_crops.append(full_vehicle_crop)
+            vh, vw = full_vehicle_crop.shape[:2]
+            if vh > 20 and vw > 20:
+                # 1. Lower bumper & rear step (lowest 32% of vehicle)
+                bumper_primary = full_vehicle_crop[int(vh * 0.68):, :]
+                if bumper_primary.size > 0:
+                    candidate_crops.append(bumper_primary)
+                # 2. Mid-lower bumper/tailgate region (lowest 40%, centered)
+                bumper_mid = full_vehicle_crop[int(vh * 0.60):, int(vw * 0.06):int(vw * 0.94)]
+                if bumper_mid.size > 0:
+                    candidate_crops.append(bumper_mid)
 
         if not candidate_crops:
             return None
 
         allowlist = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -'
 
-        for crop in candidate_crops:
-            variants = preprocess_plate_variants(crop)
-            for variant in variants:
-                try:
-                    results = self._reader.readtext(
-                        variant, detail=1, paragraph=False, allowlist=allowlist
-                    )
-                    if results:
-                        plate = self._parse_ocr_results(results)
-                        if plate:
-                            return plate
-                except Exception as e:
-                    logging.debug(f"LPR read error on variant: {e}")
+        try:
+            import torch
+            inference_ctx = torch.inference_mode()
+        except Exception:
+            import contextlib
+            inference_ctx = contextlib.nullcontext()
+
+        with inference_ctx:
+            for crop in candidate_crops:
+                variants = preprocess_plate_variants(crop)
+                for variant in variants:
+                    try:
+                        results = self._reader.readtext(
+                            variant, detail=1, paragraph=False, allowlist=allowlist
+                        )
+                        if results:
+                            plate = self._parse_ocr_results(results)
+                            if plate:
+                                return plate
+                    except Exception as e:
+                        logging.debug(f"LPR read error on variant: {e}")
 
         return None
 

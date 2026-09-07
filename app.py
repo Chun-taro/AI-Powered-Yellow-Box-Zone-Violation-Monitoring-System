@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='torch.nn.modules.rnn')
+
 from utils.helpers import setup_logging
 setup_logging()
 

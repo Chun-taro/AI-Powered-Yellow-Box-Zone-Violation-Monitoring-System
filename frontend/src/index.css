@@ -33,6 +33,7 @@
    PRINT STYLESHEET (ISO/IEC 25010 QUESTIONNAIRE)
    ========================================== */
 @media print {
+
   /* Hide non-printable navigation, header, buttons, and toasts */
   header,
   aside,
@@ -49,7 +50,8 @@
     margin: 0 !important;
   }
 
-  body, html {
+  body,
+  html {
     background: #ffffff !important;
     color: #000000 !important;
     font-family: 'Times New Roman', Georgia, serif !important;

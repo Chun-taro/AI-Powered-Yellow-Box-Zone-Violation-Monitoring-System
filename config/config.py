@@ -12,7 +12,7 @@ class Config:
   
     FRAME_WIDTH = 1280
     FRAME_HEIGHT = 720
-    FPS = 30
+    FPS = 60
 
     # Detection settings
     CONFIDENCE_THRESHOLD = 0.25  # Higher threshold = more accurate labels, fewer false detections
