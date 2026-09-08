@@ -796,7 +796,7 @@ Real-world intersection monitoring requires continuously tracking multiple vehic
 
 $$D(o_i, c_j) = \sqrt{(x_{o_i} - x_{c_j})^2 + (y_{o_i} - y_{c_j})^2}$$
 
-A global association threshold $D_{\max} = 60\text{ pixels}$ is enforced. Centroids with distances exceeding $D_{\max}$ are registered as newly entering vehicles, while unmatched existing tracks are retained in a buffer for up to $N_{\text{max\_disappeared}} = 5$ consecutive frames before being deregistered. This buffering mechanism prevents track re-identification loss during momentary visual flicker.
+A global association threshold $D_{\max} = 60\text{ pixels}$ is enforced. Centroids with distances exceeding $D_{\max}$ are registered as newly entering vehicles, while unmatched existing tracks are retained in a buffer for up to $N_{\max} = 5$ consecutive frames before being deregistered. This buffering mechanism prevents track re-identification loss during momentary visual flicker.
 
 #### Table 4-3. Multi-Object Tracking Continuity and Occlusion Recovery Rates
 
@@ -823,9 +823,9 @@ To verify whether a vehicle is stationary, the tracker calculates the Euclidean 
 
 $$\Delta d_t = \sqrt{(x_t - x_{t-1})^2 + (y_t - y_{t-1})^2}$$
 
-A vehicle is classified as stopped if $\Delta d_t < \epsilon_{\text{movement}}$, where the movement tolerance threshold is set to $\epsilon_{\text{movement}} = 4.0\text{ pixels}$. Once stationary inside the polygon ($P_{\text{ref}} \in V$ and $\Delta d_t < 4.0\text{ px}$), the system records the stop start timestamp $t_{\text{stop\_start}}$ and accumulates dwell time:
+A vehicle is classified as stopped if $\Delta d_t < \epsilon_{\text{movement}}$, where the movement tolerance threshold is set to $\epsilon_{\text{movement}} = 4.0\text{ pixels}$. Once stationary inside the polygon ($P_{\text{ref}} \in V$ and $\Delta d_t < 4.0\text{ px}$), the system records the stop start timestamp $t_{\text{start}}$ and accumulates dwell time:
 
-$$\Delta t_{\text{stop}} = t_{\text{current}} - t_{\text{stop\_start}}$$
+$$\Delta t_{\text{stop}} = t_{\text{current}} - t_{\text{start}}$$
 
 To evaluate the precision of this automated dwell timer, 50 controlled vehicle stop trials were conducted using high-definition video recordings from Sayre Highway – Fortich St. and compared against manual frame-accurate ground truth stopwatch timers.
 
@@ -848,7 +848,7 @@ In continuous intersection monitoring, a vehicle stuck in gridlock might remain 
 
 To prevent duplicate logging, each tracked vehicle is governed by an independent state machine:
 
-$$\text{State}_k \in \{ \text{TRANSIT}, \text{STOPPING}, \text{VIOLATION\_TRIGGERED}, \text{FLAGGED\_LOGGED}, \text{CLEARED} \}$$
+$$\text{State}_k \in \{ \text{TRANSIT}, \text{STOPPING}, \text{VIOLATION}, \text{FLAGGED}, \text{CLEARED} \}$$
 
 1. **State Transition**: When $\Delta t_{\text{stop}} \ge 3.0\text{ seconds}$, the vehicle transitions from `STOPPING` to `VIOLATION_TRIGGERED`.
 2. **Single-Shot Logging**: The system extracts the evidence snapshot, writes the incident to the database, dispatches the real-time alert, and immediately sets an anti-redundancy flag:
