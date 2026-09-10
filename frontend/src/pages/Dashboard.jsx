@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { StatCard } from '../components/StatCard';
 import { VideoFeed } from '../components/VideoFeed';
 import { ViolationList } from '../components/ViolationList';
-import { AlertTriangle, Camera, X, ExternalLink, Calendar, Activity, CreditCard, Upload, PlayCircle, Film, CheckCheck } from 'lucide-react';
+import { AlertTriangle, Camera, X, ExternalLink, Calendar, Activity, CreditCard, Upload, PlayCircle, Film, CheckCheck, Edit2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getVehicleColorMeta } from '../utils/colorHelper';
+import { ZoomableEvidenceImage } from '../components/ZoomableEvidenceImage';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import Cookies from 'js-cookie';
@@ -34,6 +35,9 @@ export function Dashboard() {
   const [violations, setViolations] = useState([]);
   const [stats, setStats] = useState({ total_violations: 0 });
   const [selectedViolation, setSelectedViolation] = useState(null);
+  const [isEditingPlate, setIsEditingPlate] = useState(false);
+  const [manualPlate, setManualPlate] = useState("");
+  const [isSavingPlate, setIsSavingPlate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [cameraConfig, setCameraConfig] = useState({ camera_source: '0' });
   const [isUpdatingSource, setIsUpdatingSource] = useState(false);
@@ -81,11 +85,35 @@ export function Dashboard() {
 
   const handleViewViolation = (violation) => {
     setSelectedViolation(violation);
+    setIsEditingPlate(false);
+    const existing = violation?.plate_number && !violation.plate_number.toUpperCase().includes('DISABLED') && !violation.plate_number.toUpperCase().includes('UNREAD')
+      ? violation.plate_number
+      : "";
+    setManualPlate(existing);
     if (violation) {
       const id = violation.id || violation.detection_id || violation.timestamp;
       if (id) {
         markViolationAsViewed(id);
       }
+    }
+  };
+
+  const handleSavePlate = async () => {
+    if (!manualPlate.trim() || !selectedViolation) return;
+    setIsSavingPlate(true);
+    try {
+      const cleanPlate = manualPlate.trim().toUpperCase();
+      await axios.patch(`${API_BASE}/api/violations/${selectedViolation.id}/plate`, {
+        plate_number: cleanPlate
+      });
+      setSelectedViolation(prev => ({ ...prev, plate_number: cleanPlate }));
+      setViolations(prev => prev.map(v => v.id === selectedViolation.id ? { ...v, plate_number: cleanPlate } : v));
+      setIsEditingPlate(false);
+      toast.success(`License plate updated: ${cleanPlate}`, { icon: '🚘' });
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to update plate");
+    } finally {
+      setIsSavingPlate(false);
     }
   };
 
@@ -499,32 +527,13 @@ export function Dashboard() {
             >
               <div className="flex flex-col lg:flex-row h-full">
                 {/* Image */}
-                <div className="lg:flex-1 bg-black/40 flex items-center justify-center min-h-[240px] sm:min-h-[360px] p-2 relative group select-none">
-                  <img
+                <div className="lg:flex-1 bg-black/60 p-2 relative flex items-center justify-center min-h-[280px] sm:min-h-[420px]">
+                  <ZoomableEvidenceImage
                     src={`${API_BASE}/${selectedViolation.image_path}`}
+                    vehicleColor={selectedViolation.vehicle_color}
                     alt="Violation Evidence"
-                    className="max-w-full max-h-[50vh] lg:max-h-full object-contain rounded-2xl shadow-lg"
-                    onError={(e) => {
-                      e.target.src = "https://via.placeholder.com/1280x720/1a1a1a/ffffff?text=Evidence+Not+Available";
-                    }}
+                    className="w-full h-full min-h-[280px] sm:min-h-[420px]"
                   />
-
-                  {/* Floating Detected Vehicle Color Overlay Badge */}
-                  {(() => {
-                    const cMeta = getVehicleColorMeta(selectedViolation.vehicle_color);
-                    return (
-                      <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl bg-black/80 border border-white/15 backdrop-blur-md flex items-center gap-2 shadow-2xl">
-                        <span 
-                          className="w-3 h-3 rounded-full border border-white/30 shrink-0 shadow-sm"
-                          style={{ backgroundColor: cMeta.hex, boxShadow: `0 0 10px ${cMeta.shadow}` }}
-                        />
-                        <span className="text-[10px] font-bold text-muted uppercase tracking-wider">Color:</span>
-                        <span className={`text-xs font-black uppercase tracking-wider ${cMeta.text}`}>
-                          {cMeta.name}
-                        </span>
-                      </div>
-                    );
-                  })()}
                 </div>
 
                 {/* Details */}
@@ -577,24 +586,70 @@ export function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 group">
-                      <div className="p-3 bg-white/5 rounded-2xl group-hover:bg-amber-500/10 transition-colors">
+                    <div className="flex items-start gap-4 group">
+                      <div className="p-3 bg-white/5 rounded-2xl group-hover:bg-amber-500/10 transition-colors shrink-0">
                         <CreditCard className="w-5 h-5 text-amber-500" />
                       </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-muted uppercase tracking-tight">Plate Number</p>
-                        {selectedViolation.plate_number && !selectedViolation.plate_number.toUpperCase().includes('DISABLED') && !selectedViolation.plate_number.toUpperCase().includes('UNREAD') ? (
-                          <p className="text-xs font-black tracking-widest text-emerald-400">
-                            {selectedViolation.plate_number}
-                          </p>
-                        ) : selectedViolation.plate_number && selectedViolation.plate_number.toUpperCase().includes('DISABLED') ? (
-                          <span className="inline-block mt-0.5 text-[11px] font-semibold tracking-wider text-white/50 bg-white/5 px-2 py-0.5 rounded border border-white/10">
-                            LPR DISABLED
-                          </span>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-bold text-muted uppercase tracking-tight">Plate Number</p>
+                          {!isEditingPlate && (
+                            <button
+                              onClick={() => setIsEditingPlate(true)}
+                              className="flex items-center gap-1 text-[10px] font-semibold text-accent hover:text-white transition-colors"
+                            >
+                              <Edit2 className="w-2.5 h-2.5" />
+                              <span>{selectedViolation.plate_number ? 'Edit' : 'Enter Plate'}</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {isEditingPlate ? (
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <input
+                              type="text"
+                              placeholder="ABC 1234"
+                              value={manualPlate}
+                              onChange={(e) => setManualPlate(e.target.value.toUpperCase())}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSavePlate();
+                                if (e.key === 'Escape') setIsEditingPlate(false);
+                              }}
+                              autoFocus
+                              className="w-full bg-white/10 border border-accent/50 rounded-xl px-2.5 py-1 text-xs font-mono tracking-widest text-white uppercase outline-none focus:ring-1 focus:ring-accent"
+                            />
+                            <button
+                              onClick={handleSavePlate}
+                              disabled={isSavingPlate || !manualPlate.trim()}
+                              title="Save Plate"
+                              className="p-1.5 rounded-xl bg-accent hover:bg-accent/90 text-white disabled:opacity-40 transition-colors shrink-0"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setIsEditingPlate(false)}
+                              title="Cancel"
+                              className="p-1.5 rounded-xl bg-white/5 hover:bg-white/15 text-muted hover:text-white transition-colors shrink-0"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         ) : (
-                          <span className="inline-block mt-0.5 text-[11px] font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
-                            UNREADABLE
-                          </span>
+                          <div className="mt-0.5">
+                            {selectedViolation.plate_number && !selectedViolation.plate_number.toUpperCase().includes('DISABLED') && !selectedViolation.plate_number.toUpperCase().includes('UNREAD') ? (
+                              <p className="text-xs font-black tracking-widest text-emerald-400">
+                                {selectedViolation.plate_number}
+                              </p>
+                            ) : selectedViolation.plate_number && selectedViolation.plate_number.toUpperCase().includes('DISABLED') ? (
+                              <span className="inline-block mt-0.5 text-[11px] font-semibold tracking-wider text-white/50 bg-white/5 px-2 py-0.5 rounded border border-white/10">
+                                LPR DISABLED
+                              </span>
+                            ) : (
+                              <span className="inline-block mt-0.5 text-[11px] font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                                UNREADABLE
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

@@ -942,11 +942,12 @@ In accordance with panel feedback regarding camera mounting distances and optica
 
 The empirical results in **Table 4-7** clearly demonstrate that ALPR character recognition accuracy drops from **88.2%** under optical zoom to **12.0%** on wide-angle overview CCTV. In the wide-angle feed, the physical pixel density of Philippine license plates (measuring $390\text{ mm} \times 140\text{ mm}$) is insufficient to resolve alphanumeric strokes, leading to severe character degradation.
 
-**Implementation of the ALPR Fallback Protocol**:  
-To prevent optical limitations from causing system crashes or aborting violation logging, the researchers designed and deployed an automated **Resolution Fallback Protocol**:
+**Implementation of the ALPR Fallback Protocol & Interactive Evidence Inspection**:  
+To prevent optical limitations from causing system crashes or aborting violation logging, the researchers designed and deployed an automated **Resolution Fallback Protocol** paired with an **Interactive Zoomable Evidence Inspector**:
 - When ALPR character confidence falls below the acceptance threshold ($\tau_{\text{OCR}} < 0.60$) or when optical resolution is insufficient, the system gracefully marks the plate record as `LPR Bypassed / Unread`.
-- Simultaneously, the full evidentiary dossier—including timestamp, vehicle type, vehicle color, exact intersection location, stop duration, and snapshot—is safely cataloged in the database.
-- The incident is dispatched to the dashboard for manual human verification. This architectural safeguard ensures that the monitoring pipeline continues operating 24/7 without interruption, fully adhering to legal due process by allowing authorized TMC officers to visually inspect and confirm vehicle identities.
+- Simultaneously, the full evidentiary dossier—including timestamp, vehicle type, vehicle color, exact intersection location, stop duration, and high-resolution snapshot—is safely cataloged in the database.
+- **Interactive Multi-Touch Zoom & LPR Forensic Enhancement**: The web dashboard provides an interactive evidence viewer with smooth wheel zooming (up to $600\%$), pointer drag panning, double-click auto-centering, and an on-demand **LPR Clarity Filter** that boosts local contrast ($+50\%$) and sharpness to isolate plate characters from glare and shadowed surfaces.
+- **Human-in-the-Loop Verification and Manual Plate Entry**: Authorized TMC officers can visually examine the enlarged plate region and enter/update the verified alphanumeric plate number directly into the relational database via `PATCH /api/violations/<id>/plate`. This architectural safeguard ensures 24/7 continuous operation without false citation serving, fully preserving legal due process.
 
 #### 4.3.3 Database Schema Integrity, Transactional Archival, and Chain of Custody
 

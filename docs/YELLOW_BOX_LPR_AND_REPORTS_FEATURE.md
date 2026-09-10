@@ -125,7 +125,24 @@ To overcome real-world outdoor lighting distortions (e.g. direct tropical solar 
 
 ---
 
-## 6. Verification & Testing
+## 6. Interactive Zoomable Evidence Inspector & Manual Plate Verification
+
+To address real-world optical CCTV limitations (where license plates on wide-angle cameras may be too distant or low-resolution for automated OCR), the system incorporates a dedicated **Interactive Zoomable Evidence Inspector** and **Manual Plate Entry Protocol**:
+
+### 6.1 Multi-Touch Zoom & Pan Engine (`ZoomableEvidenceImage.jsx`)
+- **Fluid Zooming**: Supports smooth mouse wheel zooming, zoom buttons (`+` and `-`), double-click auto-centering at $250\%$, and a 1-click reset button back to $100\%$ scale (supports up to $600\%$ magnification).
+- **Drag-to-Pan**: When magnified beyond $100\%$, users can click and drag across the image with smooth pointer tracking to focus directly on the vehicle's license plate.
+- **LPR Forensic Clarity Filter**: An on-demand toggle boosts contrast ($+50\%$), sharpens edges, and reduces chromatic noise, helping enforcers read faint, dirty, or shadowed plate characters.
+- **Invert / Negative Filter**: Inverts image tones to decipher plate numbers washed out by headlights or intense sun reflections.
+
+### 6.2 Manual Plate Entry & Database Synchronization
+- When inspecting an evidence modal (in **Live Alerts**, **Violation Logs**, or **Reports**), officers can click the **Edit / Enter Plate** action.
+- Directly updates the SQLite database via `PATCH /api/violations/<id>/plate`.
+- The entered plate immediately synchronizes across the user interface, official PDF reports, and Excel spreadsheets with full audit integrity.
+
+---
+
+## 7. Verification & Testing
 
 To verify the newly implemented features:
 1. **Run Color Detector Unit Tests**:
@@ -141,5 +158,11 @@ To verify the newly implemented features:
    ```powershell
    python app.py
    ```
-4. **Navigate to Reports Page**: Open `http://localhost:5000/reports` and test the **[Colors | Types]** switcher, dominant color card, custom date filters, and PDF / Excel export functions.
+4. **Navigate to Violation Logs or Reports**:
+   - Click the "Eye" (View Evidence) icon on any record.
+   - Use the mouse wheel or `+` / `-` buttons to zoom up to 600%.
+   - Click and drag to pan over to the vehicle plate.
+   - Click "LPR Clarity" to boost contrast and sharpness.
+   - Click "Enter Plate" or "Edit" to save the verified plate number.
 5. **Inspect Live Feeds & Logs**: Verify real-time video stream bounding badges show stabilized vehicle color tags and confidence scores (e.g. "Silver (92%)", "Maroon").
+

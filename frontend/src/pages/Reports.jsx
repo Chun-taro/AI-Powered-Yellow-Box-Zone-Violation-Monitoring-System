@@ -4,12 +4,14 @@ import {
   AreaChart, Area, PieChart, Pie, Cell 
 } from 'recharts';
 import { StatCard } from '../components/StatCard';
-import { TrendingUp, PieChart as PieIcon, Calendar, Download, FileSpreadsheet, Eye, Clock, AlertCircle, Film, Palette, Search, Filter } from 'lucide-react';
+import { TrendingUp, PieChart as PieIcon, Calendar, Download, FileSpreadsheet, Eye, Clock, AlertCircle, Film, Palette, Search, Filter, Edit2, Check, X } from 'lucide-react';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import { getVehicleColorMeta } from '../utils/colorHelper';
+import { ZoomableEvidenceImage } from '../components/ZoomableEvidenceImage';
 
 const API_BASE = "http://localhost:5000";
 const COLORS = ['#f97316', '#f59e0b', '#ef4444', '#10b981', '#38bdf8', '#8b5cf6', '#ec4899', '#14b8a6'];
@@ -36,6 +38,38 @@ export function Reports() {
   });
   const [isExporting, setIsExporting] = useState(false);
   const [selectedViolation, setSelectedViolation] = useState(null);
+  const [isEditingPlate, setIsEditingPlate] = useState(false);
+  const [manualPlate, setManualPlate] = useState("");
+  const [isSavingPlate, setIsSavingPlate] = useState(false);
+
+  const handleSelectViolation = (v) => {
+    setSelectedViolation(v);
+    setIsEditingPlate(false);
+    const existing = v?.plate_number && !v.plate_number.toUpperCase().includes('DISABLED') && !v.plate_number.toUpperCase().includes('UNREAD')
+      ? v.plate_number
+      : "";
+    setManualPlate(existing);
+  };
+
+  const handleSavePlate = async () => {
+    if (!manualPlate.trim() || !selectedViolation) return;
+    setIsSavingPlate(true);
+    try {
+      const cleanPlate = manualPlate.trim().toUpperCase();
+      await axios.patch(`${API_BASE}/api/violations/${selectedViolation.id}/plate`, {
+        plate_number: cleanPlate
+      });
+      setSelectedViolation(prev => ({ ...prev, plate_number: cleanPlate }));
+      setViolations(prev => prev.map(v => v.id === selectedViolation.id ? { ...v, plate_number: cleanPlate } : v));
+      setIsEditingPlate(false);
+      toast.success(`License plate updated: ${cleanPlate}`, { icon: '🚘' });
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to update plate");
+    } finally {
+      setIsSavingPlate(false);
+    }
+  };
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -906,7 +940,7 @@ export function Reports() {
                   </td>
                   <td className="py-6 px-4">
                     <button 
-                      onClick={() => setSelectedViolation(v)}
+                      onClick={() => handleSelectViolation(v)}
                       className="p-2 hover:bg-accent/10 rounded-xl transition-all group-hover:scale-110"
                     >
                       <Eye className="w-5 h-5 text-accent" />
@@ -926,7 +960,7 @@ export function Reports() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-8 bg-black/90 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-black/90 backdrop-blur-sm"
             onClick={() => setSelectedViolation(null)}
           >
              <motion.div 
@@ -936,7 +970,7 @@ export function Reports() {
                className="relative max-w-5xl w-full glass rounded-[2.5rem] overflow-hidden border-white/10 shadow-2xl"
                onClick={(e) => e.stopPropagation()}
              >
-                <div className="absolute top-6 right-6 z-10">
+                <div className="absolute top-6 right-6 z-30">
                    <button 
                     onClick={() => setSelectedViolation(null)}
                     className="w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center text-white transition-colors"
@@ -946,46 +980,31 @@ export function Reports() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12">
-                   <div className="lg:col-span-8 bg-black relative group select-none flex items-center justify-center p-2">
-                      <img 
+                   <div className="lg:col-span-8 bg-black/60 relative p-2 flex items-center justify-center min-h-[280px] sm:min-h-[420px]">
+                      <ZoomableEvidenceImage 
                         src={`${API_BASE}/${selectedViolation.image_path}`} 
-                        className="w-full h-auto max-h-[70vh] object-contain rounded-2xl" 
+                        vehicleColor={selectedViolation.vehicle_color}
                         alt="Evidence"
+                        className="w-full h-full min-h-[280px] sm:min-h-[420px]"
                       />
-                      {/* Floating Color Badge on Screenshot */}
-                      {(() => {
-                        const cMeta = getVehicleColorMeta(selectedViolation.vehicle_color);
-                        return (
-                          <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl bg-black/80 border border-white/15 backdrop-blur-md flex items-center gap-2 shadow-2xl">
-                            <span 
-                              className="w-3 h-3 rounded-full border border-white/30 shrink-0 shadow-sm"
-                              style={{ backgroundColor: cMeta.hex, boxShadow: `0 0 10px ${cMeta.shadow}` }}
-                            />
-                            <span className="text-[10px] font-bold text-muted uppercase tracking-wider">Color:</span>
-                            <span className={`text-xs font-black uppercase tracking-wider ${cMeta.text}`}>
-                              {cMeta.name}
-                            </span>
-                          </div>
-                        );
-                      })()}
                    </div>
-                   <div className="lg:col-span-4 p-8 space-y-8 self-center">
+                   <div className="lg:col-span-4 p-6 sm:p-8 space-y-6 self-center">
                       <div>
-                        <h3 className="text-2xl font-bold mb-2">Violation Details</h3>
-                        <p className="text-muted text-sm italic">Report Evidence Analysis</p>
+                        <h3 className="text-2xl font-bold mb-1">Violation Details</h3>
+                        <p className="text-muted text-xs italic">Report Evidence Analysis</p>
                       </div>
 
-                      <div className="space-y-4">
-                         <div className="flex justify-between items-center py-3 border-b border-white/5">
+                      <div className="space-y-3.5">
+                         <div className="flex justify-between items-center py-2.5 border-b border-white/5">
                             <span className="text-sm text-muted flex items-center gap-2"><Clock className="w-4 h-4" /> Timestamp</span>
-                            <span className="text-sm font-bold">{selectedViolation.timestamp || selectedViolation.violation_timestamp}</span>
+                            <span className="text-sm font-bold truncate max-w-[170px]">{selectedViolation.timestamp || selectedViolation.violation_timestamp}</span>
                          </div>
-                         <div className="flex justify-between items-center py-3 border-b border-white/5">
+                         <div className="flex justify-between items-center py-2.5 border-b border-white/5">
                             <span className="text-sm text-muted flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Vehicle Type</span>
                             <span className="text-sm font-bold text-red-400 capitalize">{selectedViolation.label}</span>
                          </div>
-                         <div className="flex justify-between items-center py-3 border-b border-white/5">
-                            <span className="text-sm text-muted">Vehicle Color</span>
+                         <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                            <span className="text-sm text-muted flex items-center gap-2"><Palette className="w-4 h-4" /> Vehicle Color</span>
                             {(() => {
                               const cMeta = getVehicleColorMeta(selectedViolation.vehicle_color);
                               return (
@@ -996,24 +1015,70 @@ export function Reports() {
                               );
                             })()}
                          </div>
-                         <div className="flex justify-between items-center py-3 border-b border-white/5">
+                         <div className="flex justify-between items-center py-2.5 border-b border-white/5">
                             <span className="text-sm text-muted flex items-center gap-2"><Eye className="w-4 h-4" /> Confidence</span>
                             <span className="text-sm font-bold">{selectedViolation.confidence ? (selectedViolation.confidence * 100).toFixed(1) : '0'}%</span>
                          </div>
-                         <div className="flex justify-between items-center py-3 border-b border-white/5">
-                            <span className="text-sm text-muted">Plate Number</span>
-                            {selectedViolation.plate_number && !selectedViolation.plate_number.toUpperCase().includes('DISABLED') && !selectedViolation.plate_number.toUpperCase().includes('UNREAD') ? (
-                              <span className="text-xs font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded border border-emerald-400/20">
-                                {selectedViolation.plate_number}
-                              </span>
-                            ) : selectedViolation.plate_number && selectedViolation.plate_number.toUpperCase().includes('DISABLED') ? (
-                              <span className="text-xs font-semibold tracking-wider text-white/50 bg-white/5 px-2.5 py-1 rounded border border-white/10">
-                                LPR DISABLED
-                              </span>
+                         <div className="py-2.5 border-b border-white/5">
+                            <div className="flex justify-between items-center mb-1.5">
+                              <span className="text-sm text-muted">Plate Number</span>
+                              {!isEditingPlate && (
+                                <button
+                                  onClick={() => setIsEditingPlate(true)}
+                                  className="flex items-center gap-1 text-xs font-semibold text-accent hover:text-white transition-colors"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                  <span>{selectedViolation.plate_number ? 'Edit' : 'Enter Plate'}</span>
+                                </button>
+                              )}
+                            </div>
+
+                            {isEditingPlate ? (
+                              <div className="flex items-center gap-2 mt-1">
+                                <input
+                                  type="text"
+                                  placeholder="e.g. ABC 1234"
+                                  value={manualPlate}
+                                  onChange={(e) => setManualPlate(e.target.value.toUpperCase())}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSavePlate();
+                                    if (e.key === 'Escape') setIsEditingPlate(false);
+                                  }}
+                                  autoFocus
+                                  className="flex-1 bg-white/10 border border-accent/50 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-mono tracking-widest text-white uppercase outline-none focus:ring-1 focus:ring-accent"
+                                />
+                                <button
+                                  onClick={handleSavePlate}
+                                  disabled={isSavingPlate || !manualPlate.trim()}
+                                  title="Save Plate"
+                                  className="p-2 rounded-xl bg-accent hover:bg-accent/90 text-white disabled:opacity-40 transition-colors"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setIsEditingPlate(false)}
+                                  title="Cancel"
+                                  className="p-2 rounded-xl bg-white/5 hover:bg-white/15 text-muted hover:text-white transition-colors"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             ) : (
-                              <span className="text-xs font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded border border-amber-400/20">
-                                UNREADABLE
-                              </span>
+                              <div className="flex justify-end">
+                                {selectedViolation.plate_number && !selectedViolation.plate_number.toUpperCase().includes('DISABLED') && !selectedViolation.plate_number.toUpperCase().includes('UNREAD') ? (
+                                  <span className="text-xs font-black tracking-widest text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded border border-emerald-400/20">
+                                    {selectedViolation.plate_number}
+                                  </span>
+                                ) : selectedViolation.plate_number && selectedViolation.plate_number.toUpperCase().includes('DISABLED') ? (
+                                  <span className="text-xs font-semibold tracking-wider text-white/50 bg-white/5 px-2.5 py-1 rounded border border-white/10">
+                                    LPR DISABLED
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded border border-amber-400/20">
+                                    UNREADABLE
+                                  </span>
+                                )}
+                              </div>
                             )}
                          </div>
                       </div>

@@ -22,6 +22,19 @@ def get_violations():
     violations = [dict(row) for row in raw_violations]
     return jsonify(violations)
 
+@api_bp.route('/violations/<int:violation_id>/plate', methods=['PATCH', 'POST'])
+def update_violation_plate(violation_id):
+    from flask import request
+    data = request.json or {}
+    plate_number = data.get('plate_number', '').strip().upper()
+    if not plate_number:
+        return jsonify({'error': 'Plate number is required'}), 400
+
+    db = Database()
+    db.update_violation_plate(violation_id, plate_number)
+    db.close()
+    return jsonify({'success': True, 'id': violation_id, 'plate_number': plate_number})
+
 @api_bp.route('/zone', methods=['POST'])
 def save_zone():
     from flask import request

@@ -361,6 +361,17 @@ class Database:
         self.conn.execute(query, (status, notes, violation_id))
         self.conn.commit()
 
+    def update_violation_plate(self, violation_id, plate_number):
+        """Update or manually correct the plate number of a violation."""
+        query = '''
+        UPDATE violations
+        SET plate_number = ?
+        WHERE id = ?
+        '''
+        self.conn.execute(query, (plate_number, violation_id))
+        self.conn.commit()
+
+
     def get_statistics(self, date):
         """Get or create statistics for a date."""
         query = 'SELECT * FROM statistics WHERE date = ?'
