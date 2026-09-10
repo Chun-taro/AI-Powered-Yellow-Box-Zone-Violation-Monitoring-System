@@ -4,7 +4,7 @@ import {
   AreaChart, Area, PieChart, Pie, Cell 
 } from 'recharts';
 import { StatCard } from '../components/StatCard';
-import { TrendingUp, PieChart as PieIcon, Calendar, Download, FileSpreadsheet, Eye, Clock, AlertCircle, Film } from 'lucide-react';
+import { TrendingUp, PieChart as PieIcon, Calendar, Download, FileSpreadsheet, Eye, Clock, AlertCircle, Film, Palette, Search, Filter } from 'lucide-react';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -12,13 +12,21 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getVehicleColorMeta } from '../utils/colorHelper';
 
 const API_BASE = "http://localhost:5000";
-const COLORS = ['#f97316', '#f59e0b', '#ef4444', '#10b981', '#38bdf8'];
+const COLORS = ['#f97316', '#f59e0b', '#ef4444', '#10b981', '#38bdf8', '#8b5cf6', '#ec4899', '#14b8a6'];
 
 export function Reports() {
   const [stats, setStats] = useState(null);
   const [violations, setViolations] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  // Analytics Switcher State: 'color' or 'type'
+  const [distributionTab, setDistributionTab] = useState('color');
+  
+  // Table Filters State
+  const [filterType, setFilterType] = useState('ALL');
+  const [filterColor, setFilterColor] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Date Range Export States
   const [showRangeModal, setShowRangeModal] = useState(false);
   const [pendingExportType, setPendingExportType] = useState(null); // 'PDF' or 'CSV'
@@ -139,40 +147,59 @@ export function Reports() {
     doc.setLineWidth(0.5);
     doc.line(14, 30, pageWidth - 14, 30);
 
+    // Compute dominant vehicle type and color for PDF
+    const pdfColorCounts = data.reduce((acc, v) => {
+      const c = v.vehicle_color || 'Standard';
+      acc[c] = (acc[c] || 0) + 1;
+      return acc;
+    }, {});
+    const sortedPdfColors = Object.entries(pdfColorCounts).sort((a, b) => b[1] - a[1]);
+    const topPdfColor = sortedPdfColors[0] ? `${sortedPdfColors[0][0]} (${sortedPdfColors[0][1]})` : 'N/A';
+    const topColorsSummary = sortedPdfColors.slice(0, 4).map(([col, cnt]) => `${col}: ${cnt}`).join(' • ');
+
     // --- REPORT METADATA & SUMMARY BOX ---
     doc.setFillColor(248, 250, 252);
-    doc.roundedRect(14, 33, pageWidth - 28, 22, 2, 2, 'F');
+    doc.roundedRect(14, 33, pageWidth - 28, 27, 2, 2, 'F');
     doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(14, 33, pageWidth - 28, 22, 2, 2, 'D');
+    doc.roundedRect(14, 33, pageWidth - 28, 27, 2, 2, 'D');
 
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(71, 85, 105);
     doc.text("Report Reference:", 18, 39);
     doc.text("Location Monitored:", 18, 45);
     doc.text("Target Scope:", 18, 51);
+    doc.text("Color Breakdown:", 18, 56.5);
 
     doc.setFont("helvetica", "normal");
     doc.setTextColor(15, 23, 42);
-    doc.text("TMC-BSU-YBZ-032", 50, 39);
-    doc.text("Sayre Highway - Fortich St. Intersection, Malaybalay City", 50, 45);
-    doc.text("All Vehicle Classes (Multicabs, Cars, Buses, Trucks, Motorcycles)", 50, 51);
+    doc.text("TMC-BSU-YBZ-032", 48, 39);
+    doc.text("Sayre Highway - Fortich St. Intersection, Malaybalay City", 48, 45);
+    doc.text("All Vehicle Classes (Multicabs, Cars, Buses, Trucks, Motorcycles)", 48, 51);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(234, 88, 12);
+    doc.text(topColorsSummary || "N/A", 48, 56.5);
 
     doc.setFont("helvetica", "bold");
     doc.setTextColor(71, 85, 105);
     doc.text("Reporting Period:", pageWidth / 2 + 10, 39);
     doc.text("Total Violations:", pageWidth / 2 + 10, 45);
-    doc.text("Date Generated:", pageWidth / 2 + 10, 51);
+    doc.text("Dominant Color:", pageWidth / 2 + 10, 51);
+    doc.text("Date Generated:", pageWidth / 2 + 10, 56.5);
 
     doc.setFont("helvetica", "normal");
     doc.setTextColor(15, 23, 42);
-    doc.text(`${dateRange.start} to ${dateRange.end}`, pageWidth / 2 + 45, 39);
-    doc.text(`${data.length} Infraction(s) Recorded`, pageWidth / 2 + 45, 45);
-    doc.text(`${timestamp}`, pageWidth / 2 + 45, 51);
+    doc.text(`${dateRange.start} to ${dateRange.end}`, pageWidth / 2 + 40, 39);
+    doc.text(`${data.length} Infraction(s) Recorded`, pageWidth / 2 + 40, 45);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${topPdfColor}`, pageWidth / 2 + 40, 51);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${timestamp}`, pageWidth / 2 + 40, 56.5);
 
     // --- VIOLATION RECORD TABLE WITH EMBEDDED IMAGES ---
     autoTable(doc, {
-      startY: 59,
+      startY: 63,
       head: [['ID', 'Evidence Photo', 'Timestamp', 'Location', 'Vehicle Class', 'Color', 'Plate No.', 'Stop Duration', 'Status']],
       body: data.slice(0, maxRows).map(v => [
         `#${v.id}`,
@@ -259,6 +286,21 @@ export function Reports() {
       }
     }));
 
+    // Compute vehicle color distribution for Excel
+    const excelColorCounts = data.reduce((acc, v) => {
+      const c = v.vehicle_color || 'Standard';
+      acc[c] = (acc[c] || 0) + 1;
+      return acc;
+    }, {});
+    const sortedExcelColors = Object.entries(excelColorCounts).sort((a, b) => b[1] - a[1]);
+    const colorSummaryRows = sortedExcelColors.map(([col, cnt]) => `
+      <tr>
+        <td style="font-weight: bold; text-align: left; background-color: #f8fafc;">${col}</td>
+        <td><b>${cnt}</b></td>
+        <td>${Math.round((cnt / Math.max(1, data.length)) * 100)}%</td>
+      </tr>
+    `).join('');
+
     let html = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
       <head>
@@ -285,6 +327,22 @@ export function Reports() {
       <body>
         <h2>BUKIDNON STATE UNIVERSITY & TMC MALAYBALAY CITY</h2>
         <h3>Yellow Box Zone Violation Enforcement Spreadsheet (${dateRange.start} to ${dateRange.end})</h3>
+        
+        <h4>Vehicle Color Distribution Summary</h4>
+        <table style="width: 450px; margin-bottom: 24px;">
+          <thead>
+            <tr>
+              <th style="background-color: #334155;">Vehicle Color</th>
+              <th style="background-color: #334155;">Recorded Infractions</th>
+              <th style="background-color: #334155;">Percentage Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${colorSummaryRows}
+          </tbody>
+        </table>
+
+        <h4>Detailed Infraction Evidence Records</h4>
         <table>
           <thead>
             <tr>
@@ -393,6 +451,55 @@ export function Reports() {
     value: value
   })).sort((a, b) => b.value - a.value);
 
+  // Derive vehicle color breakdown (from backend API or dynamically calculated from violations)
+  const colorBreakdown = stats?.by_color || (violations || []).reduce((acc, v) => {
+    const col = v.vehicle_color || 'Standard';
+    acc[col] = (acc[col] || 0) + 1;
+    return acc;
+  }, {});
+
+  const colorPieData = Object.entries(colorBreakdown).map(([name, value]) => {
+    const meta = getVehicleColorMeta(name);
+    return {
+      name,
+      value,
+      colorHex: meta.hex
+    };
+  }).sort((a, b) => b.value - a.value);
+
+  const totalViolationsCount = violations.length || stats?.total_violations || 0;
+  const dominantColor = colorPieData[0] || null;
+  const dominantType = pieData[0] || null;
+
+  // Unique options for interactive filter dropdowns
+  const availableColors = Array.from(new Set(violations.map(v => v.vehicle_color || 'Standard'))).filter(Boolean);
+  const availableTypes = Array.from(new Set(violations.map(v => v.label || 'car'))).filter(Boolean);
+
+  // Filtered infractions for documentary table
+  const filteredViolations = (violations || []).filter(v => {
+    if (filterType !== 'ALL' && (v.label || '').toLowerCase() !== filterType.toLowerCase()) {
+      return false;
+    }
+    if (filterColor !== 'ALL') {
+      const vCol = (v.vehicle_color || 'Standard').toLowerCase();
+      if (!vCol.includes(filterColor.toLowerCase())) {
+        return false;
+      }
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const idMatch = String(v.id).includes(q);
+      const plateMatch = (v.plate_number || '').toLowerCase().includes(q);
+      const locMatch = (v.location || '').toLowerCase().includes(q);
+      const colMatch = (v.vehicle_color || '').toLowerCase().includes(q);
+      const typeMatch = (v.label || '').toLowerCase().includes(q);
+      if (!idMatch && !plateMatch && !locMatch && !colMatch && !typeMatch) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto pb-12 w-full">
       <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -498,11 +605,22 @@ export function Reports() {
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-6">
+        <StatCard title="Total Violations" value={totalViolationsCount} icon={AlertCircle} color="accent" />
         <StatCard title="Daily Peak" value={`${trendData.reduce((max, p) => p.violations > max ? p.violations : max, 0)} Violations`} icon={TrendingUp} color="primary" />
-        <StatCard title="Most Common" value={pieData[0]?.name || "N/A"} icon={PieIcon} color="warning" />
-        <StatCard title="Saved Videos" value={stats.saved_videos} icon={Film} color="accent" />
-        <StatCard title="Reporting Period" value="Last 7 Days" icon={Calendar} color="accent" />
+        <StatCard 
+          title="Most Common Type" 
+          value={dominantType?.name ? `${dominantType.name.toUpperCase()} (${Math.round((dominantType.value / Math.max(1, violations.length)) * 100)}%)` : "N/A"} 
+          icon={PieIcon} 
+          color="warning" 
+        />
+        <StatCard 
+          title="Dominant Color" 
+          value={dominantColor?.name ? `${dominantColor.name} (${Math.round((dominantColor.value / Math.max(1, violations.length)) * 100)}%)` : "N/A"} 
+          icon={Palette} 
+          color="accent" 
+        />
+        <StatCard title="Saved Videos" value={stats.saved_videos} icon={Film} color="primary" />
       </div>
 
       {loading ? (
@@ -567,52 +685,155 @@ export function Reports() {
           </div>
         </div>
 
-        {/* Distribution Pie Chart */}
-        <div className="lg:col-span-4 glass p-8 rounded-[2.5rem] flex flex-col justify-between">
-          <h3 className="text-xl font-bold mb-6">Type Distribution</h3>
+        {/* Distribution Pie Chart with Switcher (Vehicle Colors vs Vehicle Types) */}
+        <div className="lg:col-span-4 glass p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2 mb-6">
+            <h3 className="text-lg sm:text-xl font-bold">
+              {distributionTab === 'color' ? 'Vehicle Colors' : 'Vehicle Types'}
+            </h3>
+            <div className="flex p-1 bg-white/5 rounded-xl border border-white/10 text-xs font-semibold">
+              <button
+                onClick={() => setDistributionTab('color')}
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                  distributionTab === 'color' ? 'bg-accent text-white shadow-md' : 'text-muted hover:text-white'
+                }`}
+              >
+                <Palette className="w-3.5 h-3.5" />
+                Colors
+              </button>
+              <button
+                onClick={() => setDistributionTab('type')}
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                  distributionTab === 'type' ? 'bg-accent text-white shadow-md' : 'text-muted hover:text-white'
+                }`}
+              >
+                <PieIcon className="w-3.5 h-3.5" />
+                Types
+              </button>
+            </div>
+          </div>
           
           <div className="h-[250px] w-full min-h-[250px]">
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={100}>
               <PieChart>
                 <Pie
-                  data={pieData}
+                  data={distributionTab === 'color' ? colorPieData : pieData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
                   outerRadius={80}
-                  paddingAngle={8}
+                  paddingAngle={6}
                   dataKey="value"
                 >
-                  {(pieData || []).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} cornerRadius={10} />
-                  ))}
+                  {(distributionTab === 'color' ? colorPieData : pieData).map((entry, index) => {
+                    const fillHex = distributionTab === 'color' 
+                      ? (entry.colorHex || COLORS[index % COLORS.length]) 
+                      : COLORS[index % COLORS.length];
+                    return (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={fillHex} 
+                        stroke={fillHex === '#ffffff' ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}
+                        strokeWidth={1}
+                        cornerRadius={10} 
+                      />
+                    );
+                  })}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                  formatter={(val, name) => [`${val} (${Math.round((val / Math.max(1, violations.length)) * 100)}%)`, name]}
+                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px' }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="space-y-3 mt-6">
-            {(pieData || []).slice(0, 4).map((entry, index) => (
-              <div key={entry.name || index} className="flex justify-between items-center p-3 rounded-2xl bg-white/5 border border-white/5">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                  <span className="text-sm font-medium">{entry.name}</span>
+          <div className="space-y-2.5 mt-6 max-h-[190px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 pr-1">
+            {(distributionTab === 'color' ? colorPieData : pieData).slice(0, 6).map((entry, index) => {
+              const cMeta = distributionTab === 'color' ? getVehicleColorMeta(entry.name) : null;
+              const pct = Math.round((entry.value / Math.max(1, violations.length)) * 100);
+              return (
+                <div key={entry.name || index} className="flex justify-between items-center p-2.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                  <div className="flex items-center gap-2.5">
+                    {distributionTab === 'color' ? (
+                      <span className="w-3.5 h-3.5 rounded-full border border-white/30 shrink-0 shadow-sm" style={{ backgroundColor: cMeta.hex }} />
+                    ) : (
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                    )}
+                    <span className="text-xs sm:text-sm font-semibold capitalize text-white">{entry.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-muted">{pct}%</span>
+                    <span className="text-xs sm:text-sm font-bold text-white bg-white/10 px-2.5 py-0.5 rounded-lg">{entry.value}</span>
+                  </div>
                 </div>
-                <span className="text-sm font-bold">{entry.value}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         </div>
       )}
 
       {/* Violation Records Table */}
-      <div className="glass p-10 rounded-[2.5rem]">
-        <div className="flex justify-between items-center mb-10">
+      <div className="glass p-6 sm:p-10 rounded-2xl sm:rounded-[2.5rem]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h3 className="text-2xl font-bold text-white/90">Violation Records</h3>
-            <p className="text-muted text-sm mt-1">Full documentary list of recorded infractions</p>
+            <h3 className="text-xl sm:text-2xl font-bold text-white/90">Violation Records</h3>
+            <p className="text-muted text-xs sm:text-sm mt-1">
+              Showing {filteredViolations.length} of {violations.length} recorded infractions
+            </p>
+          </div>
+
+          {/* Interactive Filters: Search, Vehicle Type, Vehicle Color */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Search Input */}
+            <div className="relative flex-1 sm:flex-none">
+              <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search plate, ID, location..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-accent/50 w-full sm:w-52 transition-colors"
+              />
+            </div>
+
+            {/* Vehicle Type Filter */}
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-accent/50 capitalize cursor-pointer"
+            >
+              <option value="ALL" className="bg-slate-900 text-white">All Vehicle Types</option>
+              {availableTypes.map(t => (
+                <option key={t} value={t} className="bg-slate-900 text-white capitalize">{t}</option>
+              ))}
+            </select>
+
+            {/* Vehicle Color Filter */}
+            <select
+              value={filterColor}
+              onChange={(e) => setFilterColor(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-accent/50 cursor-pointer"
+            >
+              <option value="ALL" className="bg-slate-900 text-white">All Colors</option>
+              {availableColors.map(c => (
+                <option key={c} value={c} className="bg-slate-900 text-white">{c}</option>
+              ))}
+            </select>
+
+            {(filterType !== 'ALL' || filterColor !== 'ALL' || searchQuery.trim()) && (
+              <button
+                onClick={() => {
+                  setFilterType('ALL');
+                  setFilterColor('ALL');
+                  setSearchQuery('');
+                }}
+                className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-muted hover:text-white transition-colors"
+              >
+                Reset Filters
+              </button>
+            )}
           </div>
         </div>
 
@@ -630,7 +851,14 @@ export function Reports() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {(violations || []).map((v, index) => (
+              {filteredViolations.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-muted text-sm">
+                    No violations matching your filter criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredViolations.map((v, index) => (
                 <tr key={v.id || index} className="group hover:bg-white/[0.02] transition-colors">
                   <td className="py-6 px-4 text-sm font-medium text-muted">#{v.id}</td>
                   <td className="py-6 px-4">
@@ -685,7 +913,7 @@ export function Reports() {
                     </button>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

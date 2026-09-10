@@ -111,12 +111,15 @@ def api_stats():
     # Get stats for charts (filtering by custom date range if provided)
     if start_date and end_date:
         by_type = db.count_violations_by_type(start_date=start_date, end_date=end_date)
+        by_color = db.count_violations_by_color(start_date=start_date, end_date=end_date)
         daily_trend = db.get_daily_trend(start_date=start_date, end_date=end_date)
     else:
         by_type = db.count_violations_by_type()
+        by_color = db.count_violations_by_color()
         daily_trend = db.get_daily_trend(7)
 
     by_type_data = { (row[0] if row[0] is not None else "Unknown"): row[1] for row in by_type }
+    by_color_data = { (row[0] if row[0] is not None else "Standard"): row[1] for row in by_color }
     
     trend_data = []
     for row in reversed(daily_trend):
@@ -135,6 +138,7 @@ def api_stats():
     
     return jsonify({
         'by_type': by_type_data,
+        'by_color': by_color_data,
         'trend': trend_data,
         'total_violations': total_violations,
         'saved_videos': saved_videos_count

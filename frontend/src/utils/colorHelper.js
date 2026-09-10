@@ -45,7 +45,17 @@ export function getVehicleColorMeta(colorStr) {
       shadow: 'rgba(16, 185, 129, 0.3)'
     };
   }
-  if (c.includes('yellow') || c.includes('gold') || c.includes('amber')) {
+  if (c.includes('gold') || c.includes('champagne') || c.includes('beige')) {
+    return {
+      name: colorStr,
+      text: 'text-amber-200',
+      bg: 'bg-amber-400/20',
+      border: 'border-amber-400/50',
+      hex: '#d4af37',
+      shadow: 'rgba(212, 175, 55, 0.35)'
+    };
+  }
+  if (c.includes('yellow') || c.includes('amber')) {
     return {
       name: colorStr,
       text: 'text-yellow-300',

@@ -13,6 +13,8 @@ modules_to_test = [
     "database.database",
     "ai_model.detect",
     "ai_model.tracker",
+    "ai_model.color_detector",
+    "utils.monitoring_service",
     "routes.dashboard_routes",
     "routes.api_routes",
     "app"
@@ -25,12 +27,12 @@ failed = []
 for module in modules_to_test:
     try:
         __import__(module)
-        print(f"✅ Class/Module '{module}' imported successfully.")
+        print(f"[OK] Module '{module}' imported successfully.")
     except ImportError as e:
-        print(f"❌ Failed to import '{module}': {e}")
+        print(f"[FAIL] Failed to import '{module}': {e}")
         failed.append(module)
     except Exception as e:
-        print(f"❌ Error importing '{module}': {e}")
+        print(f"[FAIL] Error importing '{module}': {e}")
         failed.append(module)
 
 if failed:
@@ -38,5 +40,5 @@ if failed:
     print(f"Failed modules: {failed}")
     sys.exit(1)
 else:
-    print("\n🎉 All modules imported successfully!")
+    print("\nAll modules imported successfully!")
     sys.exit(0)

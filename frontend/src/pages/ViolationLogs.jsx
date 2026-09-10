@@ -10,6 +10,7 @@ export function ViolationLogs() {
   const [violations, setViolations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [colorFilter, setColorFilter] = useState("ALL");
   const [selectedViolation, setSelectedViolation] = useState(null);
 
   useEffect(() => {
@@ -26,11 +27,30 @@ export function ViolationLogs() {
     }
   };
 
-  const filtered = violations.filter(v => 
-    v.label?.toLowerCase().includes(search.toLowerCase()) ||
-    v.plate_number?.toLowerCase().includes(search.toLowerCase()) ||
-    v.timestamp?.toLowerCase().includes(search.toLowerCase())
-  );
+  const availableColors = Array.from(new Set(violations.map(v => v.vehicle_color || 'Standard'))).filter(Boolean);
+
+  const filtered = violations.filter(v => {
+    // Color filter
+    if (colorFilter !== 'ALL') {
+      const vCol = (v.vehicle_color || 'Standard').toLowerCase();
+      if (!vCol.includes(colorFilter.toLowerCase())) {
+        return false;
+      }
+    }
+    // Search query (label, plate, timestamp, vehicle_color, location)
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const matchLabel = v.label?.toLowerCase().includes(q);
+      const matchPlate = v.plate_number?.toLowerCase().includes(q);
+      const matchTime = v.timestamp?.toLowerCase().includes(q);
+      const matchColor = v.vehicle_color?.toLowerCase().includes(q);
+      const matchLoc = v.location?.toLowerCase().includes(q);
+      if (!matchLabel && !matchPlate && !matchTime && !matchColor && !matchLoc) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   const downloadImage = async (path) => {
     try {
@@ -53,23 +73,41 @@ export function ViolationLogs() {
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Violation History</h2>
-          <p className="text-muted text-xs sm:text-sm mt-0.5">Full database of captured yellow box stop-time violations</p>
+          <p className="text-muted text-xs sm:text-sm mt-0.5">
+            Full database of captured yellow box stop-time violations ({filtered.length} of {violations.length})
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <div className="relative flex-1 sm:flex-none">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
             <input 
               type="text" 
-              placeholder="Search vehicle, plate, date..."
+              placeholder="Search vehicle, color, plate..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 outline-none focus:border-accent/50 transition-colors w-full sm:w-72 text-sm"
+              className="bg-white/5 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 outline-none focus:border-accent/50 transition-colors w-full sm:w-64 text-sm"
             />
           </div>
-          <button className="btn-secondary px-5 py-2.5 rounded-2xl flex items-center gap-2 border-white/10 text-sm font-semibold shrink-0">
-            <Filter className="w-4 h-4" />
-            Filter
-          </button>
+          <div className="relative">
+            <select
+              value={colorFilter}
+              onChange={(e) => setColorFilter(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 text-sm outline-none focus:border-accent/50 text-white cursor-pointer"
+            >
+              <option value="ALL" className="bg-slate-900 text-white">All Colors</option>
+              {availableColors.map(c => (
+                <option key={c} value={c} className="bg-slate-900 text-white">{c}</option>
+              ))}
+            </select>
+          </div>
+          {(colorFilter !== 'ALL' || search.trim()) && (
+            <button 
+              onClick={() => { setColorFilter('ALL'); setSearch(''); }}
+              className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-muted hover:text-white transition-colors"
+            >
+              Reset
+            </button>
+          )}
         </div>
       </header>
 

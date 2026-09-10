@@ -10,6 +10,7 @@ from utils.camera import CameraHandler
 from ai_model.detect import VehicleDetector
 from ai_model.tracker import CentroidTracker, compute_iou
 from ai_model.lpr import lpr_reader, crop_plate_region
+from ai_model.color_detector import vehicle_color_detector, vehicle_color_tracker
 from database.database import Database
 import math
 import csv
@@ -302,105 +303,22 @@ class MonitoringService:
         self.vehicle_confidences = {}
         self.vehicle_loading_status = {}
         self.cached_plates = {}  # {obj_id: plate_number} - Temporary cache while in yellowbox
+        self.color_detector = vehicle_color_detector
+        self.color_tracker = vehicle_color_tracker
         
         self.fps_current = 0
         self.fps_ai = 0
         self.person_count = 0
         self.vehicle_count = 0
 
-    def _extract_vehicle_color(self, crop_img):
+    def _extract_vehicle_color(self, crop_img, obj_id=None, vehicle_type='car'):
         """
-        Extract dominant vehicle body color using multi-region outer panel sampling.
-        Excludes dark inner cabin cavities, tires, and windshield reflections.
+        Extract vehicle color with enhanced multi-space (CIELAB + HSV) color matching,
+        anatomical panel sampling, and temporal multi-frame voting.
         """
-        if crop_img is None or crop_img.size == 0:
-            return "White"
-        try:
-            h, w, _ = crop_img.shape
-            if h < 12 or w < 12:
-                return "White"
-            
-            # Sample outer body panels (Roof, Left Pillar, Right Pillar, Lower Tailgate/Panel)
-            # Avoid the central open cavity / passenger cabin shadow
-            roof_sample = crop_img[int(h * 0.06):int(h * 0.32), int(w * 0.15):int(w * 0.85)]
-            left_pillar = crop_img[int(h * 0.20):int(h * 0.72), int(w * 0.04):int(w * 0.32)]
-            right_pillar = crop_img[int(h * 0.20):int(h * 0.72), int(w * 0.68):int(w * 0.96)]
-            lower_body = crop_img[int(h * 0.55):int(h * 0.78), int(w * 0.15):int(w * 0.85)]
-
-            samples = [s for s in [roof_sample, left_pillar, right_pillar, lower_body] if s is not None and s.size > 0]
-            if not samples:
-                samples = [crop_img]
-
-            # Aggregate sampled body pixels
-            hsv_samples = [cv2.cvtColor(s, cv2.COLOR_BGR2HSV) for s in samples]
-
-            chromatic_counts = {
-                "Red": 0, "Blue": 0, "Green": 0, "Yellow": 0, "Orange": 0
-            }
-            achromatic_counts = {
-                "White": 0, "Silver / Gray": 0, "Black": 0
-            }
-            total_sampled_pixels = 0
-
-            for hsv in hsv_samples:
-                total_sampled_pixels += hsv.shape[0] * hsv.shape[1]
-                
-                # Chromatic masks (S >= 45, V >= 50)
-                m_red1 = cv2.inRange(hsv, np.array([0, 45, 50]), np.array([10, 255, 255]))
-                m_red2 = cv2.inRange(hsv, np.array([160, 45, 50]), np.array([180, 255, 255]))
-                chromatic_counts["Red"] += cv2.countNonZero(cv2.bitwise_or(m_red1, m_red2))
-                
-                m_blue = cv2.inRange(hsv, np.array([88, 45, 50]), np.array([135, 255, 255]))
-                chromatic_counts["Blue"] += cv2.countNonZero(m_blue)
-
-                m_green = cv2.inRange(hsv, np.array([36, 45, 50]), np.array([86, 255, 255]))
-                chromatic_counts["Green"] += cv2.countNonZero(m_green)
-
-                m_yellow = cv2.inRange(hsv, np.array([16, 45, 80]), np.array([35, 255, 255]))
-                chromatic_counts["Yellow"] += cv2.countNonZero(m_yellow)
-
-                m_orange = cv2.inRange(hsv, np.array([11, 55, 80]), np.array([18, 255, 255]))
-                chromatic_counts["Orange"] += cv2.countNonZero(m_orange)
-
-                # Achromatic masks
-                # White: Bright painted panels (V >= 125, S <= 65)
-                m_white = cv2.inRange(hsv, np.array([0, 0, 125]), np.array([180, 65, 255]))
-                achromatic_counts["White"] += cv2.countNonZero(m_white)
-
-                # Silver / Gray: Medium brightness, low saturation (60 <= V < 125, S <= 45)
-                m_silver = cv2.inRange(hsv, np.array([0, 0, 60]), np.array([180, 45, 124]))
-                achromatic_counts["Silver / Gray"] += cv2.countNonZero(m_silver)
-
-                # Black: Deep dark painted body (V < 45, S <= 55)
-                m_black = cv2.inRange(hsv, np.array([0, 0, 0]), np.array([180, 55, 45]))
-                achromatic_counts["Black"] += cv2.countNonZero(m_black)
-
-            if total_sampled_pixels == 0:
-                return "White"
-
-            best_chromatic = max(chromatic_counts, key=chromatic_counts.get)
-            best_chromatic_count = chromatic_counts[best_chromatic]
-
-            # If there is a prominent chromatic color (e.g. Green, Red, Blue vehicle)
-            if best_chromatic_count >= (total_sampled_pixels * 0.12):
-                return best_chromatic
-
-            # Otherwise, classify based on achromatic body panel dominance
-            white_c = achromatic_counts["White"]
-            silver_c = achromatic_counts["Silver / Gray"]
-            black_c = achromatic_counts["Black"]
-
-            if white_c >= silver_c and white_c >= (total_sampled_pixels * 0.20):
-                return "White"
-            elif silver_c >= (total_sampled_pixels * 0.25):
-                return "Silver / Gray"
-            elif black_c >= (total_sampled_pixels * 0.45):
-                return "Black"
-            else:
-                return "White"
-        except Exception as e:
-            logging.warning(f"Vehicle color detection error: {e}")
-            return "White"
+        if obj_id is not None:
+            return self.color_tracker.get_color(obj_id, fallback_crop=crop_img, vehicle_type=vehicle_type)
+        return self.color_detector.detect_color(crop_img, vehicle_type=vehicle_type)
 
     def _save_violation(self, frame, bbox, obj_id, label, elapsed, confidence=0.0):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -412,28 +330,23 @@ class MonitoringService:
         cv2.rectangle(cropped, (x1-cx1, y1-cy1), (x2-cx1, y2-cy1), (0, 0, 255), 2)
         cv2.putText(cropped, "VIOLATION", (x1-cx1, y1-cy1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
-        # Extract vehicle color
+        # Extract vehicle color with enhanced AI detector and temporal tracker
         vehicle_crop = frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
-        vehicle_color = self._extract_vehicle_color(vehicle_crop)
+        vehicle_color, color_conf = self._extract_vehicle_color(
+            vehicle_crop, obj_id=obj_id, vehicle_type=label
+        )
+        conf_pct = int(color_conf * 100)
         
-        # Overlay color on evidence screenshot in its EXACT matching color (with high-contrast stroke)
-        color_bgr_map = {
-            "White": (255, 255, 255),
-            "Black": (45, 45, 45),
-            "Silver / Gray": (200, 200, 200),
-            "Red": (0, 0, 255),
-            "Blue": (255, 120, 0),        # Vibrant Blue
-            "Yellow": (0, 230, 255),       # Vibrant Yellow
-            "Green": (0, 230, 0),         # Vibrant Green
-            "Orange": (0, 140, 255),       # Vibrant Orange
-        }
+        # Overlay color on evidence screenshot in its calibrated BGR color (with high-contrast stroke)
+        color_bgr_map = getattr(self.color_detector, 'COLOR_BGR_MAP', {})
         text_bgr = color_bgr_map.get(vehicle_color, (255, 255, 255))
-        outline_bgr = (255, 255, 255) if vehicle_color == "Black" else (0, 0, 0)
+        outline_bgr = (255, 255, 255) if vehicle_color in ("Black", "Brown / Bronze") else (0, 0, 0)
 
         # Draw crisp high-contrast outline first, then colored fill
         text_pos = (x1-cx1, y2-cy1+40)
-        cv2.putText(cropped, f"COLOR: {vehicle_color}", text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, outline_bgr, 4)
-        cv2.putText(cropped, f"COLOR: {vehicle_color}", text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_bgr, 2)
+        color_text = f"COLOR: {vehicle_color} ({conf_pct}%)"
+        cv2.putText(cropped, color_text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, outline_bgr, 4)
+        cv2.putText(cropped, color_text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_bgr, 2)
 
         # --- LPR: Read plate or use pre-captured plate (if enabled by admin) ---
         plate_number = None
@@ -770,6 +683,21 @@ class MonitoringService:
                             self.vehicle_confidences[obj_id] = bbox_to_conf[bbox_tuple]
                         if bbox_tuple in bbox_to_label:
                              self.vehicle_types[obj_id] = bbox_to_label[bbox_tuple]
+
+                    # Periodic vehicle color temporal tracking update (every 3 frames for zero lag)
+                    if ai_frames % 3 == 0:
+                        for obj_id, (_, bbox) in self.tracked_objects_map.items():
+                            vx1, vy1, vx2, vy2 = bbox
+                            v_crop = frame[max(0, vy1):min(h, vy2), max(0, vx1):min(w, vx2)]
+                            if v_crop.size > 0:
+                                self.color_tracker.update(
+                                    obj_id, v_crop,
+                                    vehicle_type=self.vehicle_types.get(obj_id, 'car')
+                                )
+
+                    # Periodic cleanup of expired vehicle color tracks (every 30 frames)
+                    if ai_frames % 30 == 0:
+                        self.color_tracker.clean_up(self.tracked_objects_map.keys())
 
                     self.person_count = person_count
                     self.vehicle_count = vehicle_count

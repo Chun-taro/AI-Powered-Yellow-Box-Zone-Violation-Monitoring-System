@@ -398,6 +398,37 @@ class Database:
         
         return cursor.fetchall()
 
+    def count_violations_by_color(self, start_date=None, end_date=None):
+        """Count violations grouped by vehicle color for date range or all time."""
+        if start_date and end_date:
+            query = '''
+            SELECT COALESCE(NULLIF(v.vehicle_color, ''), 'Standard') as color, COUNT(*) as count
+            FROM violations v
+            WHERE DATE(v.violation_timestamp) BETWEEN ? AND ?
+            GROUP BY color
+            ORDER BY count DESC
+            '''
+            cursor = self.conn.execute(query, (start_date, end_date))
+        elif start_date:
+            query = '''
+            SELECT COALESCE(NULLIF(v.vehicle_color, ''), 'Standard') as color, COUNT(*) as count
+            FROM violations v
+            WHERE DATE(v.violation_timestamp) = ?
+            GROUP BY color
+            ORDER BY count DESC
+            '''
+            cursor = self.conn.execute(query, (start_date,))
+        else:
+            query = '''
+            SELECT COALESCE(NULLIF(v.vehicle_color, ''), 'Standard') as color, COUNT(*) as count
+            FROM violations v
+            GROUP BY color
+            ORDER BY count DESC
+            '''
+            cursor = self.conn.execute(query)
+        
+        return cursor.fetchall()
+
     def get_daily_trend(self, limit=7, start_date=None, end_date=None):
         """Get violation counts for date range or last N days."""
         if start_date and end_date:

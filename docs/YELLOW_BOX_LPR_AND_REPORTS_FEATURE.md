@@ -81,15 +81,65 @@ To prevent UI/video frame stuttering during complex LPR reads or database transa
 
 ---
 
-## Verification & Testing
+## 5. Enhanced Vehicle Color AI Detection & Analytics Monitoring Engine
+
+### 5.1 Dual-Space CIELAB + HSV Color Classification
+To overcome real-world outdoor lighting distortions (e.g. direct tropical solar glare, building shadows, overcast cloud cover), the system implements a **Dual-Space Hybrid Color Classifier** in [`ai_model/color_detector.py`](file:///d:/AI-Powered%20Yellow%20Box%20Zone%20Monitoring%20System%20Using%20AI-Based%20Camera%20Detection/ai_model/color_detector.py):
+- **Perceptual CIELAB Space**: Computes the Euclidean color difference $\Delta E^* = \sqrt{(\Delta L^*)^2 + (\Delta a^*)^2 + (\Delta b^*)^2}$ against 11 standardized automotive paint reference vectors:
+  - Neutral / Metallic: *White*, *Black*, *Silver*, *Gray*, *Gold / Champagne*
+  - Chromatic: *Red*, *Maroon*, *Blue*, *Navy*, *Yellow*, *Green*
+- **Joint HSV Cylindrical Partitioning**: Cross-validates hue angle ($H$), saturation ($S$), and brightness ($V$) boundaries to prevent false positives in high-chroma shades.
+- **Silver vs. White Resolution**: Separates metallic specular reflections from true white base coat using calibrated lightness ($L^*$) and chroma thresholds.
+- **Maroon vs. Black / Navy Resolution**: Uses the positive $a^*$ (redness) axis to reliably classify deep maroon/burgundy vehicles even under dense tree canopy or building shadows.
+
+### 5.2 Class-Aware Anatomical Panel Sampling & Glare/Shadow Rejection
+- **Body Panel Sampling**: Isolates the primary painted metal surfaces based on vehicle class (e.g. upper-middle hood and central door panels for cars, specialized masks for buses, trucks, and motorcycles).
+- **Masking Exclusions**:
+  - Excludes top region (transparent windshield glass, glare, roof racks, sunroofs).
+  - Excludes bottom region (black rubber tires, wheels, tarmac shadow).
+  - Excludes peripheral border pixels (background road clutter).
+- **Specular Glare & Shadow Filtering**: Discards over-saturated sunlight highlights ($V > 245, S < 30$) and deep undercarriage shadows ($V < 30$) before clustering.
+- **K-Means Clustering**: Fits $K=3$ dominant color clusters to identify the primary automotive body pigment.
+
+### 5.3 Multi-Frame Temporal Voting Tracker (`VehicleColorTracker`)
+- **Exponential Moving Average (EMA) Voting**: Tracks vehicle color predictions across sequential video frames:
+  $$W(c) = \sum_{t=1}^{T} \gamma^{T - t} \cdot \mathbb{I}(c_t = c)$$
+  with decay factor $\gamma = 0.9$, ensuring that recent frames have higher weight while suppressing single-frame illumination flickering.
+- **Confidence Scoring**: Computes a normalized confidence score $\text{Conf}(c^*) \in [0.0, 1.0]$.
+- **Minimum Observation Requirement**: Commits only smoothed, stabilized color attributes once a vehicle has been observed for $\ge 2$ frames.
+
+### 5.4 Database & REST API Extensions
+- **Database Handler**: [`database/database.py`](file:///d:/AI-Powered%20Yellow%20Box%20Zone%20Monitoring%20System%20Using%20AI-Based%20Camera%20Detection/database/database.py)
+  - `count_violations_by_color(start_date=None, end_date=None)`: SQL aggregation grouping infractions by vehicle color across custom date ranges.
+- **REST API Endpoint**: [`routes/dashboard_routes.py`](file:///d:/AI-Powered%20Yellow%20Box%20Zone%20Monitoring%20System%20Using%20AI-Based%20Camera%20Detection/routes/dashboard_routes.py)
+  - GET `/api/stats?start=YYYY-MM-DD&end=YYYY-MM-DD`: Returns `by_color` analytics dictionary along with `by_type` and daily trends.
+
+### 5.5 Interactive Web Command Center Analytics & Reports
+- **Interactive Distribution Switcher**: Users can toggle effortlessly between **[Colors]** and **[Types]** in [`frontend/src/pages/Reports.jsx`](file:///d:/AI-Powered%20Yellow%20Box%20Zone%20Monitoring%20System%20Using%20AI-Based%20Camera%20Detection/frontend/src/pages/Reports.jsx).
+- **Automotive Hex Palette**: Dynamic donut chart renders with authentic vehicle paint shades (e.g. Navy `#001f3f`, Maroon `#800000`, Gold `#d4af37`, Silver `#c0c0c0`, etc.).
+- **Dominant Offending Color KPI Card**: Prominently highlights the highest-frequency vehicle color involved in yellow box infractions.
+- **Multi-Attribute Violation Filtering**: Both [`Reports.jsx`](file:///d:/AI-Powered%20Yellow%20Box%20Zone%20Monitoring%20System%20Using%20AI-Based%20Camera%20Detection/frontend/src/pages/Reports.jsx) and [`ViolationLogs.jsx`](file:///d:/AI-Powered%20Yellow%20Box%20Zone%20Monitoring%20System%20Using%20AI-Based%20Camera%20Detection/frontend/src/pages/ViolationLogs.jsx) allow simultaneous filtering by Date Range, Vehicle Classification, and Vehicle Color with instant keyword search.
+- **Comprehensive Multi-Attribute Exports**:
+  - **Official PDF Report**: Incorporates vehicle color breakdown tables, dominant color indicators, and per-infraction color tags alongside vehicle classification.
+  - **Excel Spreadsheet Export**: Exports structured `.xlsx` data with complete vehicle color attributes and statistical distribution summaries.
+
+---
+
+## 6. Verification & Testing
 
 To verify the newly implemented features:
-1. **Run Unit Tests**:
+1. **Run Color Detector Unit Tests**:
    ```powershell
-   python -m unittest tests/test_detection.py
+   python tests/test_color_detector.py
    ```
-2. **Launch Monitoring App**:
+2. **Run LPR & Detection Unit Tests**:
+   ```powershell
+   python tests/test_lpr.py
+   python tests/test_detection.py
+   ```
+3. **Launch Monitoring App**:
    ```powershell
    python app.py
    ```
-3. **Navigate to Reports Page**: Open `http://localhost:5000/reports` (or access via the desktop application) and test custom date filters and export functions.
+4. **Navigate to Reports Page**: Open `http://localhost:5000/reports` and test the **[Colors | Types]** switcher, dominant color card, custom date filters, and PDF / Excel export functions.
+5. **Inspect Live Feeds & Logs**: Verify real-time video stream bounding badges show stabilized vehicle color tags and confidence scores (e.g. "Silver (92%)", "Maroon").
