@@ -1,4 +1,4 @@
-# Vehicles in Yellow Box Zone Monitoring System Using AI-Based Camera Detection
+# AI-Powered Yellow Box Zone Violation Monitoring System Using AI-Based Camera Detection
 
 **A Capstone Project by**  
 *Michael Angelo A. Angeles*  
@@ -15,7 +15,7 @@ In Partial Fulfillment of the Requirements for the Degree of Bachelor of Science
 
 ## APPROVAL SHEET
 
-This capstone project titled **"Vehicles in Yellow Box Zone Monitoring System Using AI-Based Camera Detection"** (also designated as **"AI-Powered Yellow Box Zone Violation Monitoring System Using AI-Based Camera Detection"**), prepared and submitted by **Michael Angelo A. Angeles**, **Zurich M. Cabañelez**, **Elton John K. Muralla**, and **Jesse Emannuel L. Pepito** in partial fulfillment of the requirements for the degree of **Bachelor of Science in Information Technology**, is hereby accepted.
+This capstone project titled **"AI-Powered Yellow Box Zone Violation Monitoring System Using AI-Based Camera Detection"**, prepared and submitted by **Michael Angelo A. Angeles**, **Zurich M. Cabañelez**, **Elton John K. Muralla**, and **Jesse Emannuel L. Pepito** in partial fulfillment of the requirements for the degree of **Bachelor of Science in Information Technology**, is hereby accepted.
 
 <br/>
 
@@ -721,7 +721,7 @@ The system was evaluated through two distinct methods:
 
 ## 4. RESULTS AND DISCUSSION
 
-This chapter presents the empirical findings, performance evaluations, and technical discussions of the developed **Vehicles in Yellow Box Zone Monitoring System Using AI-Based Camera Detection**. To establish direct continuity with the research design, the results are systematically organized and discussed in direct alignment with the **Specific Objectives of the Study** formulated in Chapter 1:
+This chapter presents the empirical findings, performance evaluations, and technical discussions of the developed **AI-Powered Yellow Box Zone Violation Monitoring System Using AI-Based Camera Detection**. To establish direct continuity with the research design, the results are systematically organized and discussed in direct alignment with the **Specific Objectives of the Study** formulated in Chapter 1:
 
 - **Section 4.1: Results for Objective 1** — Real-Time Detection and Monitoring of Vehicles in Yellow Box Zones (AI model detection, multi-class classification, spatial zone containment verification, and multi-object tracking).
 - **Section 4.2: Results for Objective 2** — Automated Stop-Time Recording and Real-Time Violation Alerting (dwell-time accuracy, velocity filtering, threshold logic, and sub-50ms audio-visual alerting).
@@ -1126,7 +1126,7 @@ To demonstrate adherence to the academic and operational guidance provided durin
 
 ### 5.1 Conclusion
 
-This capstone research successfully designed, developed, and evaluated the **Vehicles in Yellow Box Zone Monitoring System Using AI-Based Camera Detection** for the Traffic Management Center (TMC) of Malaybalay City. 
+This capstone research successfully designed, developed, and evaluated the **AI-Powered Yellow Box Zone Violation Monitoring System Using AI-Based Camera Detection** for the Traffic Management Center (TMC) of Malaybalay City. 
 
 The primary findings of the study are summarized as follows:
 1. **Detection & Classification**: The YOLOv8 deep learning model achieved **94.6% mAP@0.5** and **93.8% precision**, accurately categorizing local multicabs, tricycles, and general traffic classes.
@@ -1175,7 +1175,7 @@ Based on the research findings, the following enhancements are recommended:
 ### Appendix A: TMC Officer Usability Evaluation Questionnaire
 
 #### Traffic Management Center (TMC) Officer Usability & Performance Questionnaire
-**Project Title**: Vehicles in Yellow Box Zone Monitoring System Using AI-Based Camera Detection  
+**Project Title**: AI-Powered Yellow Box Zone Violation Monitoring System Using AI-Based Camera Detection  
 **Institution**: Bukidnon State University – College of Technologies  
 **Evaluator Role**: [ ] Traffic Administrator  [ ] TMC CCTV Operator  [ ] Field Enforcement Officer  
 
