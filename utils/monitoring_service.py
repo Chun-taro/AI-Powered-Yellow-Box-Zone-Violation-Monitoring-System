@@ -60,6 +60,8 @@ class MonitoringService:
         self.cached_plates = {}  # {obj_id: plate_number} - Temporary cache while in yellowbox
         self.pending_lpr_ids = set()
         self.lpr_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="LPR_Worker")
+        self.color_detector = vehicle_color_detector
+        self.color_tracker = vehicle_color_tracker
         
         self.fps_current = 0
         self.fps_ai = 0

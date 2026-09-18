@@ -32,3 +32,6 @@ static/violations/
 
 # Logs
 *.log
+
+# Office temp lock files
+~$*
