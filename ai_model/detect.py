@@ -22,25 +22,20 @@ class VehicleDetector:
         self.model_path = model_path
         
         # Detect CUDA GPU availability
-        # Note: We use standard FP32 (half=False) to prevent 'CUDA illegal instruction' crashes on GPUs
-        # that lack hardware FP16 tensor core support (e.g. GTX 1060/1070/1080/1650/1660/Pascal/Turing).
         if torch.cuda.is_available():
             try:
                 # Test basic CUDA tensor operation
                 _ = torch.zeros(1, device='cuda')
                 self.device = 0
-                self.half = False
                 gpu_name = torch.cuda.get_device_name(0)
                 # Enable cuDNN benchmark mode for optimal GPU convolution algorithms
                 torch.backends.cudnn.benchmark = True
-                logging.info(f"✓ AI Detector using GPU (CUDA: {gpu_name}) in high-performance FP32 mode with cuDNN benchmark")
+                logging.info(f"✓ AI Detector using GPU (CUDA: {gpu_name}) with cuDNN benchmark")
             except Exception as e:
                 logging.warning(f"CUDA device check error: {e}. Defaulting to CPU mode.")
                 self.device = 'cpu'
-                self.half = False
         else:
             self.device = 'cpu'
-            self.half = False
             logging.info("ℹ AI Detector using CPU mode")
 
         # Load YOLO model
@@ -52,7 +47,6 @@ class VehicleDetector:
         except Exception as e:
             logging.warning(f"Could not move model to {self.device}: {e}. Defaulting to CPU.")
             self.device = 'cpu'
-            self.half = False
             try:
                 self.model.to('cpu')
             except Exception:
@@ -81,8 +75,7 @@ class VehicleDetector:
                     agnostic_nms=True, 
                     verbose=False, 
                     imgsz=640,
-                    device=self.device,
-                    half=self.half
+                    device=self.device
                 )
         except Exception as e:
             # Handle CUDA error (e.g. illegal instruction or out of memory) by falling back to CPU
@@ -94,7 +87,6 @@ class VehicleDetector:
                 except Exception:
                     pass
                 self.device = 'cpu'
-                self.half = False
                 try:
                     self.model.to('cpu')
                     results = self.model(
@@ -104,8 +96,7 @@ class VehicleDetector:
                         agnostic_nms=True, 
                         verbose=False, 
                         imgsz=640,
-                        device='cpu',
-                        half=False
+                        device='cpu'
                     )
                 except Exception as ex:
                     logging.error(f"CPU fallback detection failed: {ex}")
