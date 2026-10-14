@@ -66,6 +66,8 @@ class VehicleDetector:
             return []
 
         # High-performance inference with YOLOv8 using torch.inference_mode()
+        # Restrict detection classes to vehicle types and person [0: person, 2: car, 3: motorcycle, 5: bus, 7: truck]
+        target_classes = [0, 2, 3, 5, 7]
         try:
             with torch.inference_mode():
                 results = self.model(
@@ -75,6 +77,7 @@ class VehicleDetector:
                     agnostic_nms=True, 
                     verbose=False, 
                     imgsz=640,
+                    classes=target_classes,
                     device=self.device
                 )
         except Exception as e:
@@ -96,6 +99,7 @@ class VehicleDetector:
                         agnostic_nms=True, 
                         verbose=False, 
                         imgsz=640,
+                        classes=target_classes,
                         device='cpu'
                     )
                 except Exception as ex:

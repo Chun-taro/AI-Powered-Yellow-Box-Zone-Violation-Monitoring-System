@@ -109,12 +109,22 @@ class CameraHandler:
         is_video_file = isinstance(self.source, str) and not self.source.startswith(('rtsp', 'http'))
         frame_delay = 1.0 / self.original_fps if is_video_file else 0
         
+        target_w = getattr(config, 'FRAME_WIDTH', 1280)
+        target_h = getattr(config, 'FRAME_HEIGHT', 720)
+        
         while not self.stopped:
             if self.cap is not None and self.cap.isOpened():
                 start_time = time.time()
-                self.ret, self.frame = self.cap.read()
+                ret, raw_frame = self.cap.read()
                 
-                if self.ret:
+                if ret and raw_frame is not None:
+                    fh, fw = raw_frame.shape[:2]
+                    if fh != target_h or fw != target_w:
+                        self.frame = cv2.resize(raw_frame, (target_w, target_h), interpolation=cv2.INTER_LINEAR)
+                    else:
+                        self.frame = raw_frame
+                    self.ret = True
+                    
                     if is_video_file:
                         # For files, we must manually manage the timing
                         elapsed = time.time() - start_time
@@ -122,6 +132,7 @@ class CameraHandler:
                         if sleep_time > 0:
                             time.sleep(sleep_time)
                 else:
+                    self.ret = False
                     # If it's a video file, loop it
                     if is_video_file:
                         self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -131,17 +142,10 @@ class CameraHandler:
                 time.sleep(0.1)
 
     def read_frame(self):
-        """Returns the most recent frame, skipping costly resize if dimensions already match"""
+        """Returns the most recent frame directly (already pre-scaled in capture thread)"""
         if self.use_placeholder or self.frame is None:
             return self.get_placeholder_frame()
-
-        # Resize frame to match config only when dimensions differ
-        h = getattr(config, 'FRAME_HEIGHT', 720)
-        w = getattr(config, 'FRAME_WIDTH', 1280)
-        fh, fw = self.frame.shape[:2]
-        if fh == h and fw == w:
-            return self.frame
-        return cv2.resize(self.frame, (w, h))
+        return self.frame
 
     def get_placeholder_frame(self):
         w = getattr(config, 'FRAME_WIDTH', 640)

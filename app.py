@@ -134,4 +134,5 @@ if __name__ == '__main__':
     # The reloader can cause issues in a multi-threaded app, especially with libraries
     # that manage their own event loops or resources (like a camera thread).
     # Disabling it prevents crashes on file changes during development.
-    app.run(debug=True, use_reloader=False)
+    print(f"Starting Yellow Box Zone Monitoring System on http://{config.HOST}:{config.PORT}")
+    app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, use_reloader=False)

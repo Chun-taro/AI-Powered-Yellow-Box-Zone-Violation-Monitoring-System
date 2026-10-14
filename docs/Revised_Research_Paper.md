@@ -794,10 +794,14 @@ To quantify the efficacy of this approach, 120 borderline vehicle traversals wer
 
 | Boundary Scenario | Total Test Trials | Method Evaluated | True Positives | True Negatives | False Positives | Spatial Accuracy (%) |
 | :--- | :---: | :--- | :---: | :---: | :---: | :---: |
-| **Adjacent Open Lane Transit** *(Vehicles passing right along box edge)* | 40 | Bounding Box IoU ($\ge 0.10$)<br>**Ray-Casting Ground Contact ($P_{\text{ref}}$)** | —<br>— | 29<br>**40** | 11<br>**0** | 72.5%<br>**100.0%** |
-| **High-Profile Vehicle Roof Overhang** *(Buses/Trucks near zone boundary)* | 40 | Bounding Box IoU ($\ge 0.10$)<br>**Ray-Casting Ground Contact ($P_{\text{ref}}$)** | —<br>— | 33<br>**39** | 7<br>**1** | 82.5%<br>**97.5%** |
-| **Direct Wheel Entry Into Zone** *(Vehicles genuinely encroaching into box)* | 40 | Bounding Box IoU ($\ge 0.10$)<br>**Ray-Casting Ground Contact ($P_{\text{ref}}$)** | 40<br>**39** | —<br>— | 0<br>**0** | 100.0%<br>**97.5%** |
-| **Combined Overall Benchmark** | **120** | Bounding Box IoU<br>**Ray-Casting Ground Contact ($P_{\text{ref}}$)** | —<br>— | —<br>— | 18<br>**1** | 85.0%<br>**98.3%** |
+| **Adjacent Open Lane Transit**<br>*(Vehicles passing right along box edge)* | 40 | Bounding Box IoU ($\ge 0.10$) | — | 29 | 11 | 72.5% |
+| ^ | ^ | **Ray-Casting Ground Contact ($P_{\text{ref}}$)** | — | **40** | **0** | **100.0%** |
+| **High-Profile Vehicle Roof Overhang**<br>*(Buses/Trucks near zone boundary)* | 40 | Bounding Box IoU ($\ge 0.10$) | — | 33 | 7 | 82.5% |
+| ^ | ^ | **Ray-Casting Ground Contact ($P_{\text{ref}}$)** | — | **39** | **1** | **97.5%** |
+| **Direct Wheel Entry Into Zone**<br>*(Vehicles genuinely encroaching into box)* | 40 | Bounding Box IoU ($\ge 0.10$) | 40 | — | 0 | 100.0% |
+| ^ | ^ | **Ray-Casting Ground Contact ($P_{\text{ref}}$)** | **39** | — | **0** | **97.5%** |
+| **Combined Overall Benchmark** | **120** | Bounding Box IoU | 40 | 62 | 18 | 85.0% |
+| ^ | ^ | **Ray-Casting Ground Contact ($P_{\text{ref}}$)** | **39** | **79** | **1** | **98.3%** |
 
 As demonstrated in **Table 4-2**, standard bounding box IoU yielded 18 false positives (85.0% overall accuracy) because the bounding boxes of passing sedans and tall trucks overlapped the zone polygon while their wheels remained in legal lanes. In contrast, the Ray-Casting Ground Contact Point method achieved **98.3% overall spatial accuracy** with only a single borderline error, completely eliminating false alarms from vehicles passing alongside the yellow box.
 
