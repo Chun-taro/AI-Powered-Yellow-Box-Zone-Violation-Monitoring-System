@@ -13,11 +13,18 @@ import numpy as np
 warnings.filterwarnings('ignore', category=UserWarning, module='torch.nn.modules.rnn')
 
 try:
+    import onnxruntime as ort
+    from fast_alpr import ALPR
+    FAST_ALPR_AVAILABLE = True
+except ImportError:
+    FAST_ALPR_AVAILABLE = False
+
+try:
     import easyocr
     EASYOCR_AVAILABLE = True
 except ImportError:
     EASYOCR_AVAILABLE = False
-    logging.warning("EasyOCR not installed. LPR will be disabled. Run: pip install easyocr")
+    logging.warning("EasyOCR not installed. Run: pip install easyocr")
 
 # Background brand words, stickers, slogans, and plate frame text to ignore
 IGNORED_WORDS = {
@@ -234,29 +241,54 @@ class LicensePlateReader:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._reader = None
+            cls._instance._fast_alpr = None
             cls._instance._ready = False
         return cls._instance
 
     def initialize(self):
-        """Load the EasyOCR model (call this in background thread)."""
-        if not EASYOCR_AVAILABLE or self._ready:
-            return
-        try:
-            import torch
-            use_gpu = torch.cuda.is_available()
-            self._reader = easyocr.Reader(['en'], gpu=use_gpu, verbose=False)
-            # Compact cuDNN RNN/LSTM weights to single contiguous memory chunk
-            if hasattr(self._reader, 'recognizer'):
-                try:
-                    for m in self._reader.recognizer.modules():
-                        if isinstance(m, torch.nn.RNNBase):
-                            m.flatten_parameters()
-                except Exception:
-                    pass
-            self._ready = True
-            logging.info(f"✓ LPR (EasyOCR) model loaded and ready (GPU Enabled: {use_gpu}).")
-        except Exception as e:
-            logging.error(f"LPR failed to initialize: {e}")
+        """Load the Fast-ALPR and EasyOCR models (call this in background thread)."""
+        # 1. Initialize Fast-ALPR (Dedicated Deep-Learning Plate Detector + MobileViT-v2 OCR)
+        if FAST_ALPR_AVAILABLE and self._fast_alpr is None:
+            try:
+                logging.getLogger('open_image_models').setLevel(logging.WARNING)
+                sess_opts = ort.SessionOptions()
+                sess_opts.log_severity_level = 3
+                providers = ['CPUExecutionProvider']
+                ocr_dev = 'cpu'
+
+                self._fast_alpr = ALPR(
+                    detector_model='yolo-v9-s-608-license-plate-end2end',
+                    ocr_model='global-plates-mobile-vit-v2-model',
+                    detector_providers=providers,
+                    ocr_device=ocr_dev,
+                    detector_conf_thresh=0.15,
+                    detector_sess_options=sess_opts,
+                    ocr_sess_options=sess_opts
+                )
+                self._ready = True
+                logging.info(f"✓ LPR Engine (Fast-ALPR YOLOv9 + MobileViT-v2) loaded and ready.")
+            except Exception as e:
+                logging.warning(f"Fast-ALPR failed to initialize: {e}. Falling back to EasyOCR.")
+                self._fast_alpr = None
+
+        # 2. Initialize EasyOCR as fallback
+        if EASYOCR_AVAILABLE and self._reader is None:
+            try:
+                import torch
+                use_gpu = torch.cuda.is_available()
+                self._reader = easyocr.Reader(['en'], gpu=use_gpu, verbose=False)
+                # Compact cuDNN RNN/LSTM weights to single contiguous memory chunk
+                if hasattr(self._reader, 'recognizer'):
+                    try:
+                        for m in self._reader.recognizer.modules():
+                            if isinstance(m, torch.nn.RNNBase):
+                                m.flatten_parameters()
+                    except Exception:
+                        pass
+                self._ready = True
+                logging.info(f"✓ LPR Fallback (EasyOCR) model loaded and ready (GPU Enabled: {use_gpu}).")
+            except Exception as e:
+                logging.error(f"LPR EasyOCR failed to initialize: {e}")
 
     def _parse_ocr_results(self, ocr_results):
         """
@@ -325,7 +357,42 @@ class LicensePlateReader:
         Returns:
             str: Validated and formatted plate number (e.g. 'KBA 5939') or None if unreadable.
         """
-        if not self._ready or self._reader is None:
+        if not self._ready:
+            return None
+
+        # -----------------------------------------------------------------
+        # Phase 1: High-Precision Fast-ALPR (YOLOv9 Plate Detector + MobileViT OCR)
+        # -----------------------------------------------------------------
+        if self._fast_alpr is not None:
+            # We try full vehicle crop first (provides full geometric context for detector)
+            # followed by frame_crop (targeted plate/bumper crop)
+            candidates_to_detect = []
+            if full_vehicle_crop is not None and full_vehicle_crop.size > 0:
+                candidates_to_detect.append(full_vehicle_crop)
+            if frame_crop is not None and frame_crop.size > 0:
+                candidates_to_detect.append(frame_crop)
+
+            for candidate in candidates_to_detect:
+                try:
+                    fast_results = self._fast_alpr.predict(candidate)
+                    if fast_results:
+                        for item in fast_results:
+                            raw_plate = getattr(item.ocr, 'text', '')
+                            # 1. Format and disambiguate Philippine plate patterns
+                            val = validate_philippine_plate(raw_plate)
+                            if val:
+                                return val
+                            # 2. Accept clean plate strings of 4-8 chars if detection confidence >= 0.35
+                            cleaned = clean_ocr_text(raw_plate)
+                            if 4 <= len(cleaned) <= 8 and getattr(item.detection, 'confidence', 0) >= 0.35:
+                                return cleaned
+                except Exception as e:
+                    logging.debug(f"Fast-ALPR inference error: {e}")
+
+        # -----------------------------------------------------------------
+        # Phase 2: EasyOCR Multi-Variant Preprocessing Fallback
+        # -----------------------------------------------------------------
+        if self._reader is None:
             return None
 
         # Build candidate image list focused strictly on the bumper and mounting areas

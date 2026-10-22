@@ -197,7 +197,7 @@ class Database:
         """Initialize default vehicle types, zones, and seeded users."""
         
         # Add default vehicle types if they don't exist
-        vehicle_types = ['car', 'truck', 'bus', 'motorcycle']
+        vehicle_types = ['car', 'truck', 'bus', 'motorcycle', 'multicab', 'tricycle']
         for vtype in vehicle_types:
             try:
                 self.conn.execute(

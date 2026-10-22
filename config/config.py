@@ -8,7 +8,7 @@ class Config:
     # Camera settings
     # Use environment variable for camera source if available, otherwise use default.
     # Example: export CAMERA_SOURCE=0 for a webcam
-    camera_source = os.getenv('CAMERA_SOURCE', 'camera/test_video5.mp4')
+    camera_source = os.getenv('CAMERA_SOURCE', 'camera/Test_video11.mp4')
   
     FRAME_WIDTH = 1280
     FRAME_HEIGHT = 720
@@ -16,9 +16,18 @@ class Config:
 
     # Detection settings
     CONFIDENCE_THRESHOLD = 0.25  # Higher threshold = more accurate labels, fewer false detections
-    # To use the generic pretrained model, simply use its name.
-    # Ultralytics will download it automatically on the first run.
-    MODEL_PATH = os.path.join(BASE_DIR, 'ai_model', 'models', 'yolov8s.pt')
+    # Custom domain-adapted YOLOv8 model for Yellow Box traffic monitoring
+    MODEL_PATH = os.path.join(BASE_DIR, 'ai_model', 'models', 'custom_yellowbox_yolov8.pt')
+    if not os.path.exists(MODEL_PATH):
+        # Fallback to secondary weights if primary custom weights are not located
+        _fallback_paths = [
+            os.path.join(BASE_DIR, 'ai_model', 'models', 'yolov8s.pt'),
+            os.path.join(BASE_DIR, 'ai_model', 'yolov8n.pt'),
+        ]
+        for _fb in _fallback_paths:
+            if os.path.exists(_fb):
+                MODEL_PATH = _fb
+                break
 
     # Zone settings
     ZONE_CONFIG_PATH = os.path.join(BASE_DIR, 'zone_config.json')

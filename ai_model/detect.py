@@ -52,6 +52,57 @@ class VehicleDetector:
             except Exception:
                 pass
 
+    @staticmethod
+    def classify_domain_vehicle(raw_cls_id, bbox):
+        """
+        Specializes standard detection bounding boxes to Philippine traffic vehicle classes:
+        - Multicab / PUJ: Light commercial microvans/jeepneys with boxy cab & passenger canopy.
+        - Tricycle: Motorcycles with passenger sidecars (distinct aspect ratio & width).
+        - Private Car / Sedan / SUV: Aerodynamic passenger vehicles.
+        - Motorcycle: Two-wheeled vehicles without sidecars.
+        - Bus / Truck: Heavy commercial vehicles.
+        """
+        x1, y1, x2, y2 = bbox
+        w = max(1, x2 - x1)
+        h = max(1, y2 - y1)
+        aspect_ratio = float(w) / float(h)
+        area = w * h
+
+        # Class 0: Person / Pedestrian
+        if raw_cls_id == 0:
+            return 0, 'person'
+
+        # Class 3: Motorcycle
+        elif raw_cls_id == 3:
+            # A standard motorcycle is narrow (aspect_ratio < 0.65).
+            # A Philippine motorized tricycle has an attached passenger sidecar (aspect_ratio >= 0.68).
+            if aspect_ratio >= 0.68 and w >= 35:
+                return 11, 'tricycle'
+            return 3, 'motorcycle'
+
+        # Class 2: Car / Light Vehicle
+        elif raw_cls_id == 2:
+            # Very small vehicle with sidecar proportions
+            if aspect_ratio <= 0.75 and area < 16000:
+                return 11, 'tricycle'
+            # Multicab / PUJ characteristics:
+            # Boxy silhouette (aspect ratio 0.78 to 1.25), tall vertical cabin & passenger canopy
+            elif 0.78 <= aspect_ratio <= 1.25 and h >= 48:
+                return 10, 'multicab'
+            else:
+                return 2, 'car'
+
+        # Class 5: Bus
+        elif raw_cls_id == 5:
+            return 5, 'bus'
+
+        # Class 7: Truck
+        elif raw_cls_id == 7:
+            return 7, 'truck'
+
+        # Default fallback
+        return int(raw_cls_id), 'car'
+
     def detect(self, frame):
         """
         Perform vehicle and person detection on a single video frame with automatic CUDA fallback.
@@ -60,7 +111,7 @@ class VehicleDetector:
             frame (numpy.ndarray): Input BGR image frame
             
         Returns:
-            list[dict]: List of detection dictionaries with 'bbox', 'confidence', and 'class'
+            list[dict]: List of detection dictionaries with 'bbox', 'confidence', 'class', and 'vehicle_type'
         """
         if frame is None or frame.size == 0:
             return []
@@ -121,10 +172,17 @@ class VehicleDetector:
                 cls_arr = boxes.cls.cpu().numpy()
 
                 for i in range(len(boxes)):
+                    box = [int(x) for x in xyxy_arr[i]]
+                    raw_cls = int(cls_arr[i])
+                    spec_cls_id, spec_name = self.classify_domain_vehicle(raw_cls, box)
+
                     detections.append({
-                        'bbox': [int(x) for x in xyxy_arr[i]],
+                        'bbox': box,
                         'confidence': float(conf_arr[i]),
-                        'class': int(cls_arr[i])
+                        'class': spec_cls_id,
+                        'class_name': spec_name,
+                        'vehicle_type': spec_name,
+                        'raw_class': raw_cls
                     })
             except Exception as e:
                 logging.warning(f"Error parsing detection boxes: {e}")

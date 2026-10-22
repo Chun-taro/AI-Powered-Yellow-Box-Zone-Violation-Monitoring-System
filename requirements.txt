@@ -5,6 +5,8 @@
 Flask==2.3.3
 flask-cors
 easyocr
+fast-alpr
+onnxruntime
 
 # Computer Vision & AI
 opencv-python==4.10.0.84

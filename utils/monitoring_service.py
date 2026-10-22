@@ -548,17 +548,22 @@ class MonitoringService:
                     # AI Inference (Full frame)
                     detections_raw = self.detector.detect(frame)
                     
-                    class_names = {0: 'person', 2: 'car', 3: 'motorcycle', 5: 'bus', 7: 'truck'}
+                    class_names = {
+                        0: 'person', 2: 'car', 3: 'motorcycle', 5: 'bus', 7: 'truck',
+                        10: 'multicab', 11: 'tricycle',
+                        'person': 'person', 'car': 'car', 'motorcycle': 'motorcycle',
+                        'bus': 'bus', 'truck': 'truck', 'multicab': 'multicab', 'tricycle': 'tricycle'
+                    }
                     raw_vehicles = []
                     raw_persons = []
                     
                     for detection in detections_raw:
                         cls_id = detection['class']
                         conf = detection['confidence']
-                        if cls_id not in class_names: continue
-                        raw_label = class_names[cls_id]
-                        label = 'car' if raw_label in ['truck', 'bus', 'vehicle', 'motorcycle'] else raw_label
-                        v_type = raw_label  # Preserves exact type ('motorcycle', 'car', etc.)
+                        raw_label = detection.get('class_name') or class_names.get(cls_id)
+                        if not raw_label: continue
+                        label = 'person' if raw_label == 'person' else 'car'
+                        v_type = raw_label  # Preserves exact type ('multicab', 'tricycle', 'car', etc.)
                         x1, y1, x2, y2 = map(int, detection['bbox'])
                         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
                         
@@ -635,7 +640,7 @@ class MonitoringService:
                             vehicle_count += 1
                             rect = (vx1, vy1, vx2, vy2)
                             detections_for_tracker.append(rect)
-                            bbox_to_label[rect] = vlabel
+                            bbox_to_label[rect] = vtype
                             bbox_to_conf[rect] = vconf
 
                     # 2. Process persons with spatial passenger suppression & boarding detection

@@ -135,6 +135,24 @@ class VehicleColorDetector:
             if p_side.size > 0:
                 samples.append(p_side)
 
+        elif v_type in ('multicab', 'puj', 'jeepney'):
+            # Front hood/bonnet + lower side passenger panels (avoiding glass windows and canopy roof)
+            p_front = crop_img[int(h * 0.48):int(h * 0.76), int(w * 0.18):int(w * 0.82)]
+            p_side = crop_img[int(h * 0.30):int(h * 0.65), int(w * 0.05):int(w * 0.30)]
+            if p_front.size > 0:
+                samples.append(p_front)
+            if p_side.size > 0:
+                samples.append(p_side)
+
+        elif v_type in ('tricycle', 'trike'):
+            # Passenger sidecar body sheet metal and front fairing
+            p_sidecar = crop_img[int(h * 0.35):int(h * 0.80), int(w * 0.42):int(w * 0.95)]
+            p_cowl = crop_img[int(h * 0.30):int(h * 0.70), int(w * 0.10):int(w * 0.45)]
+            if p_sidecar.size > 0:
+                samples.append(p_sidecar)
+            if p_cowl.size > 0:
+                samples.append(p_cowl)
+
         elif v_type == 'motorcycle':
             # Fuel tank and body cowl (35% to 70% height, 25% to 75% width)
             p_tank = crop_img[int(h * 0.35):int(h * 0.70), int(w * 0.25):int(w * 0.75)]
