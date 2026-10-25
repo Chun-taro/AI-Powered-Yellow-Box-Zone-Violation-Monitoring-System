@@ -37,6 +37,7 @@ class CentroidTracker:
         self.disappeared = {}    # Stores {objectID: missed_frame_count}
         self.kf_trackers = {}    # Stores {objectID: KalmanFilter}
         self.smoothed_bboxes = {}# Stores {objectID: [x1, y1, x2, y2]} for dimension stability
+        self.stabilized_state = {} # Stores {objectID: dict(cx, ground_y, w, h, ar, still_count)}
         self.is_occluded = {}    # Stores {objectID: bool}
         self.max_disappeared = max_disappeared
         self.max_distance = max_distance
@@ -56,11 +57,26 @@ class CentroidTracker:
 
     def register(self, centroid, bbox):
         new_id = self.next_object_id
+        x1, y1, x2, y2 = [float(x) for x in bbox]
+        w = max(1.0, x2 - x1)
+        h = max(1.0, y2 - y1)
+        cx = (x1 + x2) / 2.0
+        ground_y = y2
+        ar = w / h
+
         self.objects[new_id] = (centroid, bbox)
         self.disappeared[new_id] = 0
         self.is_occluded[new_id] = False
         self.kf_trackers[new_id] = self._init_kalman(centroid)
         self.smoothed_bboxes[new_id] = [float(x) for x in bbox]
+        self.stabilized_state[new_id] = {
+            'cx': cx,
+            'ground_y': ground_y,
+            'w': w,
+            'h': h,
+            'ar': ar,
+            'still_count': 0
+        }
         self.next_object_id += 1
         return new_id
 
@@ -69,48 +85,112 @@ class CentroidTracker:
         self.disappeared.pop(object_id, None)
         self.kf_trackers.pop(object_id, None)
         self.smoothed_bboxes.pop(object_id, None)
+        self.stabilized_state.pop(object_id, None)
         self.is_occluded.pop(object_id, None)
 
-    def _smooth_bbox(self, obj_id, new_bbox, alpha=0.30):
+    def _smooth_bbox(self, obj_id, new_bbox):
         """
-        Applies Exponential Moving Average (EMA) and outlier dimension clamping
-        to keep the vehicle bounding box stable and consistent to the vehicle's true size,
-        preventing it from jittering, pulsating, or suddenly becoming bigger/smaller.
+        Rock-Solid Vehicle Shape & Position Stabilization:
+          1. Ground-Contact Road Anchoring: Anchors box to (cx, ground_y) where tires contact asphalt,
+             preventing the bounding box from bobbing into the road or floating in air.
+          2. Aspect-Ratio Regularization: Maintains vehicle's geometric proportions (w/h) to prevent
+             distortion or collapsing when partially occluded.
+          3. Stationary Motion Deadband: Freezes position and dimensions when vehicle is stopped (<3.2 px shift),
+             completely eliminating box jitter and pulsating.
+          4. Smooth Velocity-Adaptive Gliding: Tracks moving vehicles responsive to motion with zero perceptible lag.
         """
-        if obj_id not in self.smoothed_bboxes:
-            self.smoothed_bboxes[obj_id] = [float(x) for x in new_bbox]
-            return [int(x) for x in new_bbox]
+        x1, y1, x2, y2 = [float(x) for x in new_bbox]
+        new_w = max(1.0, x2 - x1)
+        new_h = max(1.0, y2 - y1)
+        new_cx = (x1 + x2) / 2.0
+        new_ground_y = y2
+        new_ar = new_w / new_h
 
-        prev_box = self.smoothed_bboxes[obj_id]
-        prev_w = max(1.0, float(prev_box[2] - prev_box[0]))
-        prev_h = max(1.0, float(prev_box[3] - prev_box[1]))
-        
-        new_w = max(1.0, float(new_bbox[2] - new_bbox[0]))
-        new_h = max(1.0, float(new_bbox[3] - new_bbox[1]))
+        if obj_id not in self.stabilized_state:
+            self.stabilized_state[obj_id] = {
+                'cx': new_cx,
+                'ground_y': new_ground_y,
+                'w': new_w,
+                'h': new_h,
+                'ar': new_ar,
+                'still_count': 0
+            }
+            int_box = [int(round(x)) for x in new_bbox]
+            self.smoothed_bboxes[obj_id] = [float(x) for x in int_box]
+            return int_box
 
-        # Outlier rejection: a vehicle does not physically change dimensions drastically
-        # from one frame to another. Clamp dimension changes to within +/- 25%.
-        clamped_w = np.clip(new_w, prev_w * 0.80, prev_w * 1.25)
-        clamped_h = np.clip(new_h, prev_h * 0.80, prev_h * 1.25)
+        st = self.stabilized_state[obj_id]
+        prev_cx = st['cx']
+        prev_ground_y = st['ground_y']
+        prev_w = st['w']
+        prev_h = st['h']
+        prev_ar = st['ar']
 
-        # Smooth dimensions using EMA
-        smooth_w = alpha * clamped_w + (1.0 - alpha) * prev_w
-        smooth_h = alpha * clamped_h + (1.0 - alpha) * prev_h
+        # Measure spatial displacement from previous stabilized anchor
+        dx = new_cx - prev_cx
+        dy = new_ground_y - prev_ground_y
+        dist_shift = math.hypot(dx, dy)
 
-        # Smooth position using centroid
-        prev_cx = (prev_box[0] + prev_box[2]) / 2.0
-        prev_cy = (prev_box[1] + prev_box[3]) / 2.0
-        new_cx = (float(new_bbox[0]) + float(new_bbox[2])) / 2.0
-        new_cy = (float(new_bbox[1]) + float(new_bbox[3])) / 2.0
-        
-        pos_alpha = 0.40
-        smooth_cx = pos_alpha * new_cx + (1.0 - pos_alpha) * prev_cx
-        smooth_cy = pos_alpha * new_cy + (1.0 - pos_alpha) * prev_cy
+        # -------------------------------------------------------------
+        # Phase 1: Position Stabilization (Deadband + Velocity Filtering)
+        # -------------------------------------------------------------
+        if dist_shift < 3.2:
+            # Stationary vehicle (jitter suppression):
+            st['still_count'] += 1
+            smooth_cx = prev_cx
+            smooth_ground_y = prev_ground_y
+        elif dist_shift < 8.0:
+            # Slow micro-movement / creeping:
+            st['still_count'] = 0
+            alpha_pos = 0.12 + 0.16 * ((dist_shift - 3.2) / 4.8)
+            smooth_cx = prev_cx + alpha_pos * dx
+            smooth_ground_y = prev_ground_y + alpha_pos * dy
+        else:
+            # Dynamic movement:
+            st['still_count'] = 0
+            alpha_pos = min(0.55, 0.30 + 0.02 * (dist_shift - 8.0))
+            smooth_cx = prev_cx + alpha_pos * dx
+            smooth_ground_y = prev_ground_y + alpha_pos * dy
 
+        # -------------------------------------------------------------
+        # Phase 2: Dimension & Aspect Ratio Stabilization
+        # -------------------------------------------------------------
+        if st['still_count'] >= 1:
+            # Rock-solid dimension lock while stopped in yellow box / queue
+            smooth_w = prev_w
+            smooth_h = prev_h
+            smooth_ar = prev_ar
+        else:
+            # Vehicle moving in perspective: clamp rate of single-frame scale change
+            clamped_w = float(np.clip(new_w, prev_w * 0.94, prev_w * 1.06))
+            clamped_h = float(np.clip(new_h, prev_h * 0.94, prev_h * 1.06))
+
+            # Maintain geometric aspect ratio consistency
+            clamped_ar = clamped_w / clamped_h
+            smooth_ar = 0.10 * clamped_ar + 0.90 * prev_ar
+
+            # Detect anomalous shape distortion and regularize
+            ar_diff = abs(clamped_ar - smooth_ar) / smooth_ar
+            if ar_diff > 0.08:
+                if clamped_ar > smooth_ar:
+                    clamped_w = clamped_h * smooth_ar
+                else:
+                    clamped_h = clamped_w / smooth_ar
+
+            smooth_w = 0.14 * clamped_w + 0.86 * prev_w
+            smooth_h = 0.14 * clamped_h + 0.86 * prev_h
+
+        st['cx'] = smooth_cx
+        st['ground_y'] = smooth_ground_y
+        st['w'] = smooth_w
+        st['h'] = smooth_h
+        st['ar'] = smooth_ar
+
+        # Reconstruct high-precision integer bounding box
         sx1 = int(round(smooth_cx - smooth_w / 2.0))
-        sy1 = int(round(smooth_cy - smooth_h / 2.0))
         sx2 = int(round(smooth_cx + smooth_w / 2.0))
-        sy2 = int(round(smooth_cy + smooth_h / 2.0))
+        sy2 = int(round(smooth_ground_y))
+        sy1 = int(round(smooth_ground_y - smooth_h))
 
         smoothed = [sx1, sy1, sx2, sy2]
         self.smoothed_bboxes[obj_id] = [float(sx1), float(sy1), float(sx2), float(sy2)]
@@ -134,10 +214,16 @@ class CentroidTracker:
             # Predict updated position if missed or occluded in recent frame
             if self.disappeared.get(obj_id, 0) > 0:
                 old_centroid, old_bbox = self.objects[obj_id]
-                new_cx, new_cy = int(prediction[0, 0]), int(prediction[1, 0])
-                dx = int(np.clip(new_cx - old_centroid[0], -25, 25))
-                dy = int(np.clip(new_cy - old_centroid[1], -25, 25))
-                new_bbox = [old_bbox[0] + dx, old_bbox[1] + dy, old_bbox[2] + dx, old_bbox[3] + dy]
+                st = self.stabilized_state.get(obj_id)
+                # If vehicle was stationary before miss, preserve its exact stationary position
+                if st is not None and st.get('still_count', 0) >= 2:
+                    new_bbox = old_bbox.copy()
+                    new_cx, new_cy = old_centroid
+                else:
+                    new_cx, new_cy = int(prediction[0, 0]), int(prediction[1, 0])
+                    dx = int(np.clip(new_cx - old_centroid[0], -20, 20))
+                    dy = int(np.clip(new_cy - old_centroid[1], -20, 20))
+                    new_bbox = [old_bbox[0] + dx, old_bbox[1] + dy, old_bbox[2] + dx, old_bbox[3] + dy]
                 self.objects[obj_id] = ((new_cx, new_cy), new_bbox)
                 self.smoothed_bboxes[obj_id] = [float(x) for x in new_bbox]
 

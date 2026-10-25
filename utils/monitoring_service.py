@@ -58,6 +58,8 @@ class MonitoringService:
         self.vehicle_confidences = {}
         self.vehicle_loading_status = {}
         self.cached_plates = {}  # {obj_id: plate_number} - Temporary cache while in yellowbox
+        self.cached_plate_scores = {}  # {obj_id: float}
+        self.cached_plate_validated = {}  # {obj_id: bool}
         self.pending_lpr_ids = set()
         self.lpr_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="LPR_Worker")
         self.color_detector = vehicle_color_detector
@@ -170,7 +172,7 @@ class MonitoringService:
                  # Fallback reload logic if needed
                 
             # Initialize Tracker
-            self.tracker = CentroidTracker(max_disappeared=15, max_distance=200)
+            self.tracker = CentroidTracker(max_disappeared=30, max_distance=200)
             
             # Initial zone trigger
             self._check_zone_update()
@@ -350,18 +352,38 @@ class MonitoringService:
         cv2.putText(cropped, color_text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, outline_bgr, 4)
         cv2.putText(cropped, color_text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_bgr, 2)
 
-        # --- LPR: Read plate or use pre-captured plate (if enabled by admin) ---
+        # --- LPR: Read plate from evidentiary frame (with cached pre-capture fallback) ---
         plate_number = None
         if getattr(config, 'LPR_ENABLED', True):
-            plate_number = self.cached_plates.get(obj_id)
-            if not plate_number:
-                try:
-                    plate_crop = crop_plate_region(frame, bbox)
-                    v_crop = frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
-                    if plate_crop is not None:
-                        plate_number = lpr_reader.read_plate(plate_crop, full_vehicle_crop=v_crop)
-                except Exception as e:
-                    logging.warning(f"LPR failed for vehicle {obj_id}: {e}")
+            fresh_plate = None
+            fresh_score = 0.0
+            fresh_val = False
+            try:
+                plate_crop = crop_plate_region(frame, bbox)
+                v_crop = frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
+                fresh_plate, fresh_score, fresh_val = lpr_reader.read_plate(plate_crop, full_vehicle_crop=v_crop, return_confidence=True)
+            except Exception as e:
+                logging.warning(f"LPR direct read on violation frame failed for vehicle {obj_id}: {e}")
+
+            cached_plate = self.cached_plates.get(obj_id)
+            cached_score = self.cached_plate_scores.get(obj_id, 0.0)
+            cached_val = self.cached_plate_validated.get(obj_id, False)
+
+            # Prioritize definitive fresh read from crisp stopped evidentiary snapshot
+            if fresh_plate and fresh_val and (fresh_score >= 1.5 or not cached_val):
+                plate_number = fresh_plate
+                self.cached_plates[obj_id] = fresh_plate
+                self.cached_plate_scores[obj_id] = fresh_score
+                self.cached_plate_validated[obj_id] = fresh_val
+            elif fresh_plate and (fresh_score > cached_score or not cached_plate):
+                plate_number = fresh_plate
+                self.cached_plates[obj_id] = fresh_plate
+                self.cached_plate_scores[obj_id] = fresh_score
+                self.cached_plate_validated[obj_id] = fresh_val
+            elif cached_plate:
+                plate_number = cached_plate
+            elif fresh_plate:
+                plate_number = fresh_plate
             
             if plate_number:
                 logging.info(f"LPR confirmed plate: {plate_number} for vehicle ID {obj_id}")
@@ -503,9 +525,25 @@ class MonitoringService:
     def _async_lpr_worker(self, obj_id, plate_crop, v_crop):
         """Runs OCR in background worker thread without blocking the AI or stream loops."""
         try:
-            read_p = lpr_reader.read_plate(plate_crop, full_vehicle_crop=v_crop)
+            read_p, score, is_val = lpr_reader.read_plate(plate_crop, full_vehicle_crop=v_crop, return_confidence=True)
             if read_p:
-                self.cached_plates[obj_id] = read_p
+                prev_score = self.cached_plate_scores.get(obj_id, 0.0)
+                prev_val = self.cached_plate_validated.get(obj_id, False)
+
+                # Progressive Upgrade Condition:
+                # 1. First plate detected for this vehicle
+                # 2. Or newly detected plate is properly validated while previous was only generic string
+                # 3. Or newly detected plate has higher composite score
+                should_update = (
+                    (obj_id not in self.cached_plates) or
+                    (is_val and not prev_val) or
+                    (score > prev_score + 0.15)
+                )
+                if should_update:
+                    self.cached_plates[obj_id] = read_p
+                    self.cached_plate_scores[obj_id] = score
+                    self.cached_plate_validated[obj_id] = is_val
+                    logging.info(f"LPR vehicle #{obj_id}: captured plate '{read_p}' (score: {score:.2f}, validated: {is_val})")
         except Exception as e:
             logging.debug(f"Async LPR worker error: {e}")
         finally:
@@ -802,25 +840,29 @@ class MonitoringService:
                         # Active loading state: ONLY triggered if THIS vehicle was associated with an active boarding person
                         is_loading = (obj_id in active_loading_vehicles) or ((current_time - self.vehicle_loading_status.get(obj_id, 0)) < 1.0)
 
+                        # Continuous Early LPR Pre-Capture (Approach + Dwell):
+                        # Runs asynchronously on tracked vehicles in the right lane before and during zone dwell.
+                        # Captures plates early while vehicles approach and before occlusions occur.
+                        if getattr(config, 'LPR_ENABLED', True):
+                            has_validated_plate = self.cached_plate_validated.get(obj_id, False) and (self.cached_plate_scores.get(obj_id, 0.0) >= 2.2)
+                            lpr_sample_rate = 6 if obj_id in self.cached_plates else 3
+                            if not has_validated_plate and obj_id not in self.pending_lpr_ids and (ai_frames % lpr_sample_rate == 0):
+                                try:
+                                    plate_crop = crop_plate_region(frame, bbox)
+                                    v_crop = frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
+                                    if plate_crop is not None and plate_crop.size > 0:
+                                        self.pending_lpr_ids.add(obj_id)
+                                        self.lpr_executor.submit(
+                                            self._async_lpr_worker,
+                                            obj_id,
+                                            plate_crop.copy(),
+                                            v_crop.copy() if v_crop is not None else None
+                                        )
+                                except Exception:
+                                    pass
+
                         # Yellow Box Zone Dwell Timer Logic
                         if is_in_zone:
-                            # Pre-capture LPR plate while inside yellow box zone ASYNCHRONOUSLY (Zero AI thread blocking)
-                            if getattr(config, 'LPR_ENABLED', True) and (obj_id not in self.cached_plates or self.cached_plates[obj_id] is None):
-                                if obj_id not in self.pending_lpr_ids and (ai_frames % 5 == 0):
-                                    try:
-                                        plate_crop = crop_plate_region(frame, bbox)
-                                        v_crop = frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
-                                        if plate_crop is not None and plate_crop.size > 0:
-                                            self.pending_lpr_ids.add(obj_id)
-                                            self.lpr_executor.submit(
-                                                self._async_lpr_worker,
-                                                obj_id,
-                                                plate_crop.copy(),
-                                                v_crop.copy() if v_crop is not None else None
-                                            )
-                                    except Exception:
-                                        pass
-
                             if not is_loading:
                                 # Normal vehicle dwelling in yellow box without passengers -> countdown to violation
                                 if obj_id not in self.vehicle_timers:
@@ -842,6 +884,8 @@ class MonitoringService:
                             # Vehicle cleared or left yellow box zone without violation
                             if obj_id not in self.violated_ids:
                                 self.cached_plates.pop(obj_id, None)
+                                self.cached_plate_scores.pop(obj_id, None)
+                                self.cached_plate_validated.pop(obj_id, None)
                             self.vehicle_timers.pop(obj_id, None)
                         
                         # Periodic local check
