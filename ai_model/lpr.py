@@ -413,10 +413,8 @@ class LicensePlateReader:
                 logging.getLogger('open_image_models').setLevel(logging.WARNING)
                 sess_opts = ort.SessionOptions()
                 sess_opts.log_severity_level = 3
-                import torch
-                has_cuda = torch.cuda.is_available() and ('CUDAExecutionProvider' in ort.get_available_providers())
-                providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if has_cuda else ['CPUExecutionProvider']
-                ocr_dev = 'cuda' if has_cuda else 'cpu'
+                providers = ['CPUExecutionProvider']
+                ocr_dev = 'cpu'
 
                 self._fast_alpr = ALPR(
                     detector_model='yolo-v9-s-608-license-plate-end2end',
