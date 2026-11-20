@@ -240,6 +240,7 @@ class MonitoringService:
                 
                 # Draw latest detections from the AI thread using a snapshot for thread safety
                 current_detections = list(self.tracked_objects_map.items())
+                valid_detections = []
                 for obj_id, (centroid, bbox) in current_detections:
                     if obj_id not in self.movement_start_pos: continue # Waiting for AI
                     x1, y1, x2, y2 = bbox
@@ -256,6 +257,24 @@ class MonitoringService:
                     # Only detect and draw vehicles that enter the yellow box zone
                     if not is_in_zone:
                         continue
+
+                    # Filter out any overlapping duplicate detections
+                    is_overlap = False
+                    area_cur = max(1.0, float((x2 - x1) * (y2 - y1)))
+                    for _, _, b_prev in valid_detections:
+                        iou = compute_iou(bbox, b_prev)
+                        area_prev = max(1.0, float((b_prev[2] - b_prev[0]) * (b_prev[3] - b_prev[1])))
+                        inter_w = max(0.0, min(x2, b_prev[2]) - max(x1, b_prev[0]))
+                        inter_h = max(0.0, min(y2, b_prev[3]) - max(y1, b_prev[1]))
+                        containment = float(inter_w * inter_h) / min(area_cur, area_prev)
+                        if iou >= 0.20 or containment >= 0.38:
+                            is_overlap = True
+                            break
+                    if not is_overlap:
+                        valid_detections.append((obj_id, centroid, bbox))
+
+                for obj_id, centroid, bbox in valid_detections:
+                    x1, y1, x2, y2 = bbox
 
                     vlabel = f"Vehicle #{obj_id}"
                     color = (0, 165, 255) # Orange
@@ -623,31 +642,30 @@ class MonitoringService:
                             if conf < 0.25: continue
                             raw_persons.append((x1, y1, x2, y2, cx, cy, conf))
 
-                    # Deduplicate overlapping vehicle detections (NMS)
-                    # Only deduplicates duplicate bounding boxes of the SAME vehicle at the SAME depth,
-                    # NEVER dropping distinct vehicles at different depths along the lane.
+                    # Deduplicate overlapping vehicle detections (NMS & Containment)
+                    # Merges multi-class or partial bounding boxes of the same vehicle
                     if len(raw_vehicles) > 1:
                         raw_vehicles_sorted = sorted(raw_vehicles, key=lambda x: x[6], reverse=True)
                         deduped_vehicles = []
                         for rv in raw_vehicles_sorted:
                             box_a = [rv[0], rv[1], rv[2], rv[3]]
-                            area_a = max(1, (box_a[2] - box_a[0]) * (box_a[3] - box_a[1]))
+                            area_a = max(1.0, float((box_a[2] - box_a[0]) * (box_a[3] - box_a[1])))
                             is_dup = False
                             for dk in deduped_vehicles:
                                 box_b = [dk[0], dk[1], dk[2], dk[3]]
-                                area_b = max(1, (box_b[2] - box_b[0]) * (box_b[3] - box_b[1]))
+                                area_b = max(1.0, float((box_b[2] - box_b[0]) * (box_b[3] - box_b[1])))
                                 
-                                # Road contact difference (Depth check)
-                                y2_diff = abs(box_a[3] - box_b[3])
                                 iou = compute_iou(box_a, box_b)
-                                
-                                inter_w = max(0, min(box_a[2], box_b[2]) - max(box_a[0], box_b[0]))
-                                inter_h = max(0, min(box_a[3], box_b[3]) - max(box_a[1], box_b[1]))
+                                inter_w = max(0.0, min(box_a[2], box_b[2]) - max(box_a[0], box_b[0]))
+                                inter_h = max(0.0, min(box_a[3], box_b[3]) - max(box_a[1], box_b[1]))
                                 containment = float(inter_w * inter_h) / min(area_a, area_b)
                                 
-                                # Two boxes are duplicates of the SAME vehicle ONLY if they share the same road contact (depth)
-                                # AND have either high IoU (> 0.65) or high containment (> 0.85)
-                                if y2_diff <= 28 and (iou > 0.65 or containment > 0.85):
+                                cx_a, cy_a = rv[4], rv[5]
+                                cx_b, cy_b = dk[4], dk[5]
+                                center_inside = (box_b[0] <= cx_a <= box_b[2] and box_b[1] <= cy_a <= box_b[3]) or \
+                                                (box_a[0] <= cx_b <= box_a[2] and box_a[1] <= cy_b <= box_a[3])
+                                
+                                if iou >= 0.20 or containment >= 0.38 or (center_inside and containment >= 0.25):
                                     is_dup = True
                                     break
                             if not is_dup:
@@ -743,8 +761,23 @@ class MonitoringService:
                     if ai_frames % 30 == 0:
                         self.color_tracker.clean_up(self.tracked_objects_map.keys())
 
+                    # Calculate unique active vehicles inside the yellow zone
+                    zone_vehicle_count = 0
+                    for obj_id, (centroid, bbox) in self.tracked_objects_map.items():
+                        x1, y1, x2, y2 = bbox
+                        if self.yellow_zone is not None:
+                            test_pt1 = (float(x1 + (x2 - x1) / 2), float(y1 + (y2 - y1) / 2))
+                            test_pt2 = (float(x1 + (x2 - x1) / 2), float(y2))
+                            test_pt3 = (float(x1 + (x2 - x1) / 2), float(y1 + (y2 - y1) * 0.75))
+                            if cv2.pointPolygonTest(self.yellow_zone, test_pt1, False) >= 0 or \
+                               cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
+                               cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0:
+                                zone_vehicle_count += 1
+                        else:
+                            zone_vehicle_count += 1
+
                     self.person_count = person_count
-                    self.vehicle_count = vehicle_count
+                    self.vehicle_count = zone_vehicle_count
                     self.current_persons = current_persons
 
                     # ---------------------------------------------------------

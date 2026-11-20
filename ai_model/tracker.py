@@ -56,6 +56,33 @@ class CentroidTracker:
         return kf
 
     def register(self, centroid, bbox):
+        # Prevent registering a duplicate of an existing tracked vehicle
+        b_new = [float(x) for x in bbox]
+        a_new = max(1.0, (b_new[2] - b_new[0]) * (b_new[3] - b_new[1]))
+        cx_new, cy_new = centroid
+
+        for obj_id, (c_old, b_old) in list(self.objects.items()):
+            iou = compute_iou(b_new, b_old)
+            a_old = max(1.0, (b_old[2] - b_old[0]) * (b_old[3] - b_old[1]))
+            inter_w = max(0.0, min(b_new[2], b_old[2]) - max(b_new[0], b_old[0]))
+            inter_h = max(0.0, min(b_new[3], b_old[3]) - max(b_new[1], b_old[1]))
+            containment = (inter_w * inter_h) / min(a_new, a_old)
+
+            center_inside = (b_old[0] <= cx_new <= b_old[2] and b_old[1] <= cy_new <= b_old[3]) or \
+                            (b_new[0] <= c_old[0] <= b_new[2] and b_new[1] <= c_old[1] <= b_new[3])
+
+            if iou >= 0.20 or containment >= 0.38 or (center_inside and containment >= 0.25):
+                smoothed_rect = self._smooth_bbox(obj_id, bbox)
+                scx = (smoothed_rect[0] + smoothed_rect[2]) // 2
+                scy = (smoothed_rect[1] + smoothed_rect[3]) // 2
+                self.objects[obj_id] = ((scx, scy), smoothed_rect)
+                self.disappeared[obj_id] = 0
+                self.is_occluded[obj_id] = False
+                meas = np.array([[centroid[0]], [centroid[1]]], np.float32)
+                if obj_id in self.kf_trackers:
+                    self.kf_trackers[obj_id].correct(meas)
+                return obj_id
+
         new_id = self.next_object_id
         x1, y1, x2, y2 = [float(x) for x in bbox]
         w = max(1.0, x2 - x1)
@@ -79,6 +106,50 @@ class CentroidTracker:
         }
         self.next_object_id += 1
         return new_id
+
+    def deduplicate_tracks(self):
+        """Purge any duplicate tracks that have merged or overlap heavily."""
+        obj_ids = list(self.objects.keys())
+        to_remove = set()
+
+        for i in range(len(obj_ids)):
+            id1 = obj_ids[i]
+            if id1 in to_remove or id1 not in self.objects:
+                continue
+            b1 = self.objects[id1][1]
+            a1 = max(1.0, (b1[2] - b1[0]) * (b1[3] - b1[1]))
+            c1 = self.objects[id1][0]
+
+            for j in range(i + 1, len(obj_ids)):
+                id2 = obj_ids[j]
+                if id2 in to_remove or id2 not in self.objects:
+                    continue
+                b2 = self.objects[id2][1]
+                a2 = max(1.0, (b2[2] - b2[0]) * (b2[3] - b2[1]))
+                c2 = self.objects[id2][0]
+
+                iou = compute_iou(b1, b2)
+                inter_w = max(0.0, min(b1[2], b2[2]) - max(b1[0], b2[0]))
+                inter_h = max(0.0, min(b1[3], b2[3]) - max(b1[1], b2[1]))
+                containment = (inter_w * inter_h) / min(a1, a2)
+
+                center_inside = (b1[0] <= c2[0] <= b1[2] and b1[1] <= c2[1] <= b1[3]) or \
+                                (b2[0] <= c1[0] <= b2[2] and b2[1] <= c1[1] <= b2[3])
+
+                if iou >= 0.20 or containment >= 0.38 or (center_inside and containment >= 0.25):
+                    dis1 = self.disappeared.get(id1, 0)
+                    dis2 = self.disappeared.get(id2, 0)
+                    if dis2 > dis1:
+                        to_remove.add(id2)
+                    elif dis1 > dis2:
+                        to_remove.add(id1)
+                    elif id2 > id1:
+                        to_remove.add(id2)
+                    else:
+                        to_remove.add(id1)
+
+        for rem_id in to_remove:
+            self.deregister(rem_id)
 
     def deregister(self, object_id):
         self.objects.pop(object_id, None)
@@ -275,10 +346,10 @@ class CentroidTracker:
                 c_dist = math.hypot(obj_centroid[0] - input_centroids[c][0], obj_centroid[1] - input_centroids[c][1])
 
                 # Occlusion / Perspective Gates:
-                # 1. Scale ratio gate: vehicles do not differ in area by > 2.2x between frames
+                # 1. Scale ratio gate: vehicles do not differ in area by > 4x between frames
                 # 2. Road contact depth gate: road contact y2 cannot jump > 65px or 45% of height
                 # 3. Centroid jump gate: cannot jump > 175px in a single step
-                if scale_ratio < 0.45 or y2_diff > max(65.0, 0.45 * vh) or c_dist > 175.0:
+                if scale_ratio < 0.22 or y2_diff > max(65.0, 0.45 * vh) or c_dist > 175.0:
                     iou = 0.0
 
                 iou_matrix[r, c] = iou
@@ -328,8 +399,8 @@ class CentroidTracker:
                 y2_diff = abs(obj_bbox[3] - rect[3])
                 c_dist = math.hypot(obj_centroid[0] - input_centroids[c][0], obj_centroid[1] - input_centroids[c][1])
 
-                # Fallback gate: scale must match reasonably (>=0.48) and depth must be consistent (<=55px)
-                if scale_ratio >= 0.48 and y2_diff <= max(55.0, 0.40 * vh) and c_dist <= self.max_distance:
+                # Fallback gate: scale must match reasonably (>=0.25) and depth must be consistent (<=55px)
+                if scale_ratio >= 0.25 and y2_diff <= max(55.0, 0.40 * vh) and c_dist <= self.max_distance:
                     if c_dist < best_dist:
                         best_dist = c_dist
                         best_c = c
@@ -365,6 +436,9 @@ class CentroidTracker:
         # Assign a NEW unique tracking ID
         for c in unused_cols:
             self.register(input_centroids[c], rects[c])
+
+        # Purge any duplicate tracks that merged or overlap heavily
+        self.deduplicate_tracks()
 
         return self.objects.copy()
 
