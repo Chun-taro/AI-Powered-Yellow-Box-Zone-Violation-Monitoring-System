@@ -78,6 +78,7 @@ class MonitoringService:
         # New State for Async AI tracking
         self.current_persons = []
         self.tracked_objects_map = {}
+        self.display_boxes = {}
         self.bbox_to_label = {}
         
         # Initialize placeholder frame for immediate feedback
@@ -239,7 +240,7 @@ class MonitoringService:
                     cv2.polylines(frame, [self.yellow_zone], isClosed=True, color=(0, 255, 255), thickness=2)
                 
                 # Draw latest detections from the AI thread using a snapshot for thread safety
-                current_detections = list(self.tracked_objects_map.items())
+                current_detections = sorted(list(self.tracked_objects_map.items()), key=lambda x: x[0])
                 valid_detections = []
                 for obj_id, (centroid, bbox) in current_detections:
                     if obj_id not in self.movement_start_pos: continue # Waiting for AI
@@ -273,8 +274,33 @@ class MonitoringService:
                     if not is_overlap:
                         valid_detections.append((obj_id, centroid, bbox))
 
+                active_draw_ids = set()
                 for obj_id, centroid, bbox in valid_detections:
-                    x1, y1, x2, y2 = bbox
+                    active_draw_ids.add(obj_id)
+                    target_b = [float(v) for v in bbox]
+                    is_stopped = self.is_stopped_map.get(obj_id, False)
+
+                    # Smooth Display Interpolator: Completely eliminates shaking & box jitter
+                    if obj_id not in self.display_boxes:
+                        self.display_boxes[obj_id] = target_b.copy()
+                    else:
+                        prev_b = self.display_boxes[obj_id]
+                        if is_stopped:
+                            # 100% Frozen Position for Stopped Vehicles (0.0px jitter)
+                            diff_pos = math.hypot(target_b[0] - prev_b[0], target_b[1] - prev_b[1])
+                            if diff_pos > 22.0:
+                                self.display_boxes[obj_id] = [
+                                    prev_b[i] + 0.15 * (target_b[i] - prev_b[i]) for i in range(4)
+                                ]
+                        else:
+                            # Smooth exponential glide for moving vehicles (buttery 30 FPS display)
+                            alpha = 0.35
+                            self.display_boxes[obj_id] = [
+                                prev_b[i] + alpha * (target_b[i] - prev_b[i]) for i in range(4)
+                            ]
+
+                    draw_box = [int(round(v)) for v in self.display_boxes[obj_id]]
+                    x1, y1, x2, y2 = draw_box
 
                     vlabel = f"Vehicle #{obj_id}"
                     color = (0, 165, 255) # Orange
@@ -294,6 +320,10 @@ class MonitoringService:
                     
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                     cv2.putText(frame, vlabel, (x1, max(15, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
+
+                # Periodic cleanup of expired display boxes
+                if frame_count % 30 == 0:
+                    self.display_boxes = {k: v for k, v in self.display_boxes.items() if k in active_draw_ids}
 
                 for p in self.current_persons:
                     px1, py1, px2, py2 = p[0], p[1], p[2], p[3]
@@ -806,11 +836,18 @@ class MonitoringService:
                                 
                                 if iou >= 0.20 or containment >= 0.38 or (center_inside and containment >= 0.25):
                                     is_dup = True
-                                    # Merge bounding boxes so the ENTIRE vehicle (cab + bed/roof) is enclosed
-                                    mx1 = min(box_a[0], box_b[0])
-                                    my1 = min(box_a[1], box_b[1])
-                                    mx2 = max(box_a[2], box_b[2])
-                                    my2 = max(box_a[3], box_b[3])
+                                    # Stable bounding box merge: only merge if aspect ratio and dimensions are consistent
+                                    cand_w = max(box_a[2], box_b[2]) - min(box_a[0], box_b[0])
+                                    cand_h = max(box_a[3], box_b[3]) - min(box_a[1], box_b[1])
+                                    base_w = box_b[2] - box_b[0]
+                                    base_h = box_b[3] - box_b[1]
+                                    if cand_w <= base_w * 1.35 and cand_h <= base_h * 1.35:
+                                        mx1 = min(box_a[0], box_b[0])
+                                        my1 = min(box_a[1], box_b[1])
+                                        mx2 = max(box_a[2], box_b[2])
+                                        my2 = max(box_a[3], box_b[3])
+                                    else:
+                                        mx1, my1, mx2, my2 = (box_a if area_a > area_b else box_b)
                                     mcx, mcy = (mx1 + mx2) // 2, (my1 + my2) // 2
                                     m_conf = max(rv[6], dk[6])
                                     m_label = dk[7]

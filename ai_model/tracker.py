@@ -203,53 +203,38 @@ class CentroidTracker:
         dist_shift = math.hypot(dx, dy)
 
         # -------------------------------------------------------------
-        # Phase 1: Position Stabilization (Deadband + Velocity Filtering)
+        # Phase 1: Position Stabilization (Anti-Jitter Deadband & Adaptive Glide)
         # -------------------------------------------------------------
-        if dist_shift < 3.2:
-            # Stationary vehicle (jitter suppression):
+        if dist_shift < 9.0:
+            # Stationary / idling vehicle: lock position completely (0.0px jitter)
             st['still_count'] += 1
             smooth_cx = prev_cx
             smooth_ground_y = prev_ground_y
-        elif dist_shift < 8.0:
-            # Slow micro-movement / creeping:
-            st['still_count'] = 0
-            alpha_pos = 0.12 + 0.16 * ((dist_shift - 3.2) / 4.8)
-            smooth_cx = prev_cx + alpha_pos * dx
-            smooth_ground_y = prev_ground_y + alpha_pos * dy
-        else:
-            # Dynamic movement:
-            st['still_count'] = 0
-            alpha_pos = min(0.55, 0.30 + 0.02 * (dist_shift - 8.0))
-            smooth_cx = prev_cx + alpha_pos * dx
-            smooth_ground_y = prev_ground_y + alpha_pos * dy
-
-        # -------------------------------------------------------------
-        # Phase 2: Dimension & Aspect Ratio Stabilization
-        # -------------------------------------------------------------
-        if st['still_count'] >= 1:
-            # Rock-solid dimension lock while stopped in yellow box / queue
             smooth_w = prev_w
             smooth_h = prev_h
             smooth_ar = prev_ar
+        elif dist_shift < 18.0:
+            # Slow micro-movement / creeping: smooth damping
+            st['still_count'] = max(0, st['still_count'] - 1)
+            alpha_pos = 0.12 + 0.12 * ((dist_shift - 9.0) / 9.0)
+            smooth_cx = prev_cx + alpha_pos * dx
+            smooth_ground_y = prev_ground_y + alpha_pos * dy
+            clamped_w = float(np.clip(new_w, prev_w * 0.98, prev_w * 1.02))
+            clamped_h = float(np.clip(new_h, prev_h * 0.98, prev_h * 1.02))
+            smooth_w = 0.08 * clamped_w + 0.92 * prev_w
+            smooth_h = 0.08 * clamped_h + 0.92 * prev_h
+            smooth_ar = prev_ar
         else:
-            # Vehicle moving in perspective: clamp rate of single-frame scale change
-            clamped_w = float(np.clip(new_w, prev_w * 0.94, prev_w * 1.06))
-            clamped_h = float(np.clip(new_h, prev_h * 0.94, prev_h * 1.06))
-
-            # Maintain geometric aspect ratio consistency
-            clamped_ar = clamped_w / clamped_h
-            smooth_ar = 0.10 * clamped_ar + 0.90 * prev_ar
-
-            # Detect anomalous shape distortion and regularize
-            ar_diff = abs(clamped_ar - smooth_ar) / smooth_ar
-            if ar_diff > 0.08:
-                if clamped_ar > smooth_ar:
-                    clamped_w = clamped_h * smooth_ar
-                else:
-                    clamped_h = clamped_w / smooth_ar
-
-            smooth_w = 0.14 * clamped_w + 0.86 * prev_w
-            smooth_h = 0.14 * clamped_h + 0.86 * prev_h
+            # Dynamic vehicular movement: responsive tracking glide
+            st['still_count'] = 0
+            alpha_pos = min(0.45, 0.22 + 0.015 * (dist_shift - 18.0))
+            smooth_cx = prev_cx + alpha_pos * dx
+            smooth_ground_y = prev_ground_y + alpha_pos * dy
+            clamped_w = float(np.clip(new_w, prev_w * 0.96, prev_w * 1.04))
+            clamped_h = float(np.clip(new_h, prev_h * 0.96, prev_h * 1.04))
+            smooth_w = 0.12 * clamped_w + 0.88 * prev_w
+            smooth_h = 0.12 * clamped_h + 0.88 * prev_h
+            smooth_ar = smooth_w / smooth_h
 
         st['cx'] = smooth_cx
         st['ground_y'] = smooth_ground_y
