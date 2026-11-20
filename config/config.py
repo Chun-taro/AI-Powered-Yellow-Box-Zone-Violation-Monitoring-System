@@ -45,10 +45,10 @@ class Config:
         
         # Default coordinates if file doesn't exist or fails
         return [
-            (865, 587),
-            (1057, 617),
-            (1152, 247),
-            (1074, 230),
+            [240, 680],
+            [750, 698],
+            [830, 240],
+            [630, 240],
         ]
 
     def save_zone_config(self, coordinates):
