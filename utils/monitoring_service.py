@@ -248,30 +248,28 @@ class MonitoringService:
                                      cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
                                      cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0
                     
+                    # Only detect and draw vehicles that enter the yellow box zone
+                    if not is_in_zone:
+                        continue
+
                     vlabel = f"Vehicle #{obj_id}"
+                    color = (0, 165, 255) # Orange
+                    is_loading = (time.time() - self.vehicle_loading_status.get(obj_id, 0)) < 1.0
 
-                    if is_in_zone:
+                    if obj_id in self.violated_ids: 
+                        color = (0, 0, 255) # Red
+                        cv2.putText(frame, "VIOLATION", (x1, max(15, y1 - 25)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
+                    elif is_loading:
+                        cv2.putText(frame, "LOADING 15s", (x1, max(15, y1 - 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+                        color = (0, 255, 255) # Yellow/Cyan
+                    elif obj_id in self.vehicle_timers:
+                        elapsed = time.time() - self.vehicle_timers[obj_id]
+                        rem = max(0, int(time_limit - elapsed))
+                        cv2.putText(frame, f"{rem}s", (x1, max(15, y1 - 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 165, 255), 2)
                         color = (0, 165, 255) # Orange
-                        is_loading = (time.time() - self.vehicle_loading_status.get(obj_id, 0)) < 1.0
-
-                        if obj_id in self.violated_ids: 
-                            color = (0, 0, 255) # Red
-                            cv2.putText(frame, "VIOLATION", (x1, max(15, y1 - 25)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
-                        elif is_loading:
-                            cv2.putText(frame, "LOADING 15s", (x1, max(15, y1 - 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
-                            color = (0, 255, 255) # Yellow/Cyan
-                        elif obj_id in self.vehicle_timers:
-                            elapsed = time.time() - self.vehicle_timers[obj_id]
-                            rem = max(0, int(time_limit - elapsed))
-                            cv2.putText(frame, f"{rem}s", (x1, max(15, y1 - 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 165, 255), 2)
-                            color = (0, 165, 255) # Orange
-                        
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                        cv2.putText(frame, f"{vlabel} (IN ZONE)", (x1, max(15, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
-                    else:
-                        color = (255, 180, 0) # Sky blue for approaching/tracked vehicles
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
-                        cv2.putText(frame, vlabel, (x1, max(15, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+                    
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                    cv2.putText(frame, vlabel, (x1, max(15, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
 
                 for p in self.current_persons:
                     px1, py1, px2, py2 = p[0], p[1], p[2], p[3]
@@ -662,10 +660,23 @@ class MonitoringService:
                         vx1, vy1, vx2, vy2, vcx, vcy, vconf, vlabel, vtype = v
                         vehicle_boxes_all.append((vx1, vy1, vx2, vy2, vtype))
                         
-                        vehicle_count += 1
+                        is_in_zone = False
+                        if self.yellow_zone is not None:
+                            test_pt1 = (float(vcx), float(vcy))
+                            test_pt2 = (float(vcx), float(vy2))
+                            test_pt3 = (float(vcx), float(vy1 + (vy2 - vy1) * 0.75))
+                            is_in_zone = cv2.pointPolygonTest(self.yellow_zone, test_pt1, False) >= 0 or \
+                                         cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
+                                         cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0
+                        else:
+                            is_in_zone = True
+
+                        if is_in_zone:
+                            vehicle_count += 1
+                        
                         rect = (vx1, vy1, vx2, vy2)
                         detections_for_tracker.append(rect)
-                        bbox_to_label[rect] = vtype
+                        bbox_to_label[rect] = 'vehicle'
                         bbox_to_conf[rect] = vconf
 
                     # 2. Process persons with spatial passenger suppression & boarding detection
