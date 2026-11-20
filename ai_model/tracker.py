@@ -87,18 +87,6 @@ class CentroidTracker:
         x1, y1, x2, y2 = [float(x) for x in bbox]
         w = max(1.0, x2 - x1)
         h = max(1.0, y2 - y1)
-
-        # Ensure new arrivals on roadway have proper vertical 5-anchor proportion (0.92 * w <= h <= 1.25 * w)
-        if y2 > 220:
-            if h < w * 0.92:
-                h = w * 0.95
-                y1 = y2 - h
-            elif h > w * 1.25:
-                h = w * 1.22
-                y1 = y2 - h
-            bbox = [int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2))]
-            centroid = ((bbox[0] + bbox[2]) // 2, (bbox[1] + bbox[3]) // 2)
-
         cx = (x1 + x2) / 2.0
         ground_y = y2
         ar = w / h
@@ -215,30 +203,24 @@ class CentroidTracker:
         dist_shift = math.hypot(dx, dy)
 
         # -------------------------------------------------------------
-        # Phase 1: Position & 5-Anchor Size Stabilization
+        # Phase 1: Position Stabilization (Anti-Jitter Deadband & Adaptive Glide)
         # -------------------------------------------------------------
-        # 5-Anchor physical constraints: height is tightly bounded between 0.88 * w and 1.26 * w
-        min_anchor_h = prev_w * 0.88
-        max_anchor_h = prev_w * 1.26
-
         if dist_shift < 9.0:
-            # Stationary / idling vehicle: lock position and size completely (0.0px jitter)
+            # Stationary / idling vehicle: lock position and dimensions completely (0.0px jitter)
             st['still_count'] += 1
             smooth_cx = prev_cx
             smooth_ground_y = prev_ground_y
             smooth_w = prev_w
-            smooth_h = float(np.clip(prev_h, min_anchor_h, max_anchor_h))
-            smooth_ar = smooth_w / smooth_h
+            smooth_h = prev_h
+            smooth_ar = prev_ar
         elif dist_shift < 18.0:
             # Slow micro-movement / creeping: smooth damping
             st['still_count'] = max(0, st['still_count'] - 1)
             alpha_pos = 0.12 + 0.12 * ((dist_shift - 9.0) / 9.0)
             smooth_cx = prev_cx + alpha_pos * dx
             smooth_ground_y = prev_ground_y + alpha_pos * dy
-            clamped_w = float(np.clip(new_w, prev_w * 0.98, prev_w * 1.02))
-            smooth_w = 0.08 * clamped_w + 0.92 * prev_w
-            target_h = float(np.clip(new_h, smooth_w * 0.90, smooth_w * 1.25))
-            smooth_h = float(np.clip(0.08 * target_h + 0.92 * prev_h, min_anchor_h, max_anchor_h))
+            smooth_w = 0.10 * new_w + 0.90 * prev_w
+            smooth_h = 0.10 * new_h + 0.90 * prev_h
             smooth_ar = smooth_w / smooth_h
         else:
             # Dynamic vehicular movement: responsive tracking glide
@@ -246,10 +228,8 @@ class CentroidTracker:
             alpha_pos = min(0.45, 0.22 + 0.015 * (dist_shift - 18.0))
             smooth_cx = prev_cx + alpha_pos * dx
             smooth_ground_y = prev_ground_y + alpha_pos * dy
-            clamped_w = float(np.clip(new_w, prev_w * 0.96, prev_w * 1.04))
-            smooth_w = 0.12 * clamped_w + 0.88 * prev_w
-            target_h = float(np.clip(new_h, smooth_w * 0.90, smooth_w * 1.25))
-            smooth_h = float(np.clip(0.12 * target_h + 0.88 * prev_h, min_anchor_h, max_anchor_h))
+            smooth_w = 0.20 * new_w + 0.80 * prev_w
+            smooth_h = 0.20 * new_h + 0.80 * prev_h
             smooth_ar = smooth_w / smooth_h
 
         st['cx'] = smooth_cx
@@ -347,13 +327,7 @@ class CentroidTracker:
                 c_dist = math.hypot(obj_centroid[0] - input_centroids[c][0], obj_centroid[1] - input_centroids[c][1])
 
                 # Occlusion / Perspective Gates:
-                # 1. Scale ratio gate: vehicles do not differ in area by > 5x between frames,
-                #    relaxed to 0.14 when ground depth matches (y2_diff <= 35px) to allow
-                #    body expansion when vehicle canopy is uncovered.
-                # 2. Road contact depth gate: road contact y2 cannot jump > 65px or 45% of height
-                # 3. Centroid jump gate: cannot jump > 175px in a single step
-                min_scale = 0.14 if y2_diff <= 35.0 else 0.22
-                if scale_ratio < min_scale or y2_diff > max(65.0, 0.45 * vh) or c_dist > 175.0:
+                if scale_ratio < 0.22 or y2_diff > max(65.0, 0.45 * vh) or c_dist > 175.0:
                     iou = 0.0
 
                 iou_matrix[r, c] = iou

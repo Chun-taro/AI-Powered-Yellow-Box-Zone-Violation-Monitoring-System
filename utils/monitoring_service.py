@@ -811,53 +811,29 @@ class MonitoringService:
                             if conf < 0.25: continue
                             raw_persons.append((x1, y1, x2, y2, cx, cy, conf))
 
-                    # Deduplicate overlapping vehicle detections (NMS & Containment)
-                    # Enforces 5-point anchor geometry: merges duplicate detections of the SAME vehicle
-                    # while strictly preventing adjacent queuing vehicles from being merged together
+                    # Deduplicate overlapping multi-class detections (pure standard NMS)
                     if len(raw_vehicles) > 1:
                         raw_vehicles_sorted = sorted(raw_vehicles, key=lambda x: x[6], reverse=True)
                         deduped_vehicles = []
                         for rv in raw_vehicles_sorted:
                             box_a = [rv[0], rv[1], rv[2], rv[3]]
                             area_a = max(1.0, float((box_a[2] - box_a[0]) * (box_a[3] - box_a[1])))
-                            w_a = box_a[2] - box_a[0]
                             is_dup = False
                             for idx_dk, dk in enumerate(deduped_vehicles):
                                 box_b = [dk[0], dk[1], dk[2], dk[3]]
                                 area_b = max(1.0, float((box_b[2] - box_b[0]) * (box_b[3] - box_b[1])))
-                                w_b = box_b[2] - box_b[0]
-                                
                                 iou = compute_iou(box_a, box_b)
                                 inter_w = max(0.0, min(box_a[2], box_b[2]) - max(box_a[0], box_b[0]))
                                 inter_h = max(0.0, min(box_a[3], box_b[3]) - max(box_a[1], box_b[1]))
                                 containment = float(inter_w * inter_h) / min(area_a, area_b)
-                                
-                                cx_a, cy_a = rv[4], rv[5]
-                                cx_b, cy_b = dk[4], dk[5]
-                                center_inside = (box_b[0] <= cx_a <= box_b[2] and box_b[1] <= cy_a <= box_b[3]) or \
-                                                (box_a[0] <= cx_b <= box_a[2] and box_a[1] <= cy_b <= box_a[3])
-                                
-                                if iou >= 0.25 or containment >= 0.45 or (center_inside and containment >= 0.35):
-                                    cand_w = max(box_a[2], box_b[2]) - min(box_a[0], box_b[0])
-                                    cand_h = max(box_a[3], box_b[3]) - min(box_a[1], box_b[1])
-                                    # Strict aspect ratio validation: a single vehicle's height cannot exceed 1.30x its width
-                                    if 0.65 <= cand_h / cand_w <= 1.30:
-                                        is_dup = True
-                                        mx1 = min(box_a[0], box_b[0])
-                                        my1 = min(box_a[1], box_b[1])
-                                        mx2 = max(box_a[2], box_b[2])
-                                        my2 = max(box_a[3], box_b[3])
-                                        mcx, mcy = (mx1 + mx2) // 2, (my1 + my2) // 2
-                                        m_conf = max(rv[6], dk[6])
-                                        m_label = dk[7]
-                                        m_type = dk[8] if dk[8] not in ('car', 'vehicle') else rv[8]
-                                        deduped_vehicles[idx_dk] = (mx1, my1, mx2, my2, mcx, mcy, m_conf, m_label, m_type)
-                                        break
+                                if iou >= 0.35 or containment >= 0.55:
+                                    is_dup = True
+                                    break
                             if not is_dup:
                                 deduped_vehicles.append(rv)
                         raw_vehicles = deduped_vehicles
 
-                    # 1. Process all detected vehicles with 5-Point Anchor Size Normalization
+                    # 1. Process all detected vehicles directly from YOLO
                     detections_for_tracker = []
                     bbox_to_label = {}
                     bbox_to_conf = {}
@@ -866,36 +842,26 @@ class MonitoringService:
 
                     for v in raw_vehicles:
                         vx1, vy1, vx2, vy2, vcx, vcy, vconf, vlabel, vtype = v
-                        vw = vx2 - vx1
-                        vh = vy2 - vy1
+                        vehicle_boxes_all.append((vx1, vy1, vx2, vy2, vtype))
+                        
+                        is_in_zone = False
+                        if self.yellow_zone is not None:
+                            test_pt1 = (float(vcx), float(vcy))
+                            test_pt2 = (float(vcx), float(vy2))
+                            test_pt3 = (float(vcx), float(vy1 + (vy2 - vy1) * 0.75))
+                            is_in_zone = cv2.pointPolygonTest(self.yellow_zone, test_pt1, False) >= 0 or \
+                                         cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
+                                         cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0
+                        else:
+                            is_in_zone = True
 
-                        # 5-Anchor Physical Constraints:
-                        # On this road angle, multicabs, jeepneys, and cars have 0.92 * w <= h <= 1.25 * w
-                        min_anchor_h = int(vw * 0.92)
-                        max_anchor_h = int(vw * 1.25)
-
-                        # Canopy Reconstruction: Seated Passengers or Boarders at Doorway
-                        for pb in raw_persons:
-                            px1, py1, px2, py2, pcx, pcy, pconf = pb
-                            pw = px2 - px1
-                            inter_x = max(0, min(vx2, px2) - max(vx1, px1))
-                            if inter_x >= 0.40 * min(vw, pw) and py2 >= vy1 - 25 and py1 < vy2:
-                                cabin_y1 = min(vy1, py1 - 15)
-                                if (vy2 - cabin_y1) <= max_anchor_h:
-                                    vy1 = cabin_y1
-                                    vx1 = min(vx1, px1)
-                                    vx2 = max(vx2, px2)
-                                    vw = vx2 - vx1
-                                    vh = vy2 - vy1
-
-                        # Clamp height strictly to 5-anchor physical limits
-                        if vy2 > 220:
-                            if vh < min_anchor_h:
-                                vy1 = max(0, vy2 - min_anchor_h)
-                                vh = vy2 - vy1
-                            elif vh > max_anchor_h:
-                                vy1 = vy2 - max_anchor_h
-                                vh = vy2 - vy1
+                        if is_in_zone:
+                            vehicle_count += 1
+                        
+                        rect = (vx1, vy1, vx2, vy2)
+                        detections_for_tracker.append(rect)
+                        bbox_to_label[rect] = 'vehicle'
+                        bbox_to_conf[rect] = vconf
 
                         vcx, vcy = (vx1 + vx2) // 2, (vy1 + vy2) // 2
                         vehicle_boxes_all.append((vx1, vy1, vx2, vy2, vtype))
