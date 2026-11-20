@@ -1,4 +1,4 @@
-# AI-Powered Yellow Box Zone Violation Monitoring System Using AI-Based Camera Detection
+# Multicab Yellow Box Zone Monitoring System Using AI-Based Camera Detection
 
 **A Capstone Project by**  
 *Michael Angelo A. Angeles*  
@@ -15,7 +15,7 @@ In Partial Fulfillment of the Requirements for the Degree of Bachelor of Science
 
 ## APPROVAL SHEET
 
-This capstone project titled **"AI-Powered Yellow Box Zone Violation Monitoring System Using AI-Based Camera Detection"**, prepared and submitted by **Michael Angelo A. Angeles**, **Zurich M. Cabañelez**, **Elton John K. Muralla**, and **Jesse Emannuel L. Pepito** in partial fulfillment of the requirements for the degree of **Bachelor of Science in Information Technology**, is hereby accepted.
+This capstone project titled **"Multicab Yellow Box Zone Monitoring System Using AI-Based Camera Detection"**, prepared and submitted by **Michael Angelo A. Angeles**, **Zurich M. Cabañelez**, **Elton John K. Muralla**, and **Jesse Emannuel L. Pepito** in partial fulfillment of the requirements for the degree of **Bachelor of Science in Information Technology**, is hereby accepted.
 
 <br/>
 
@@ -125,8 +125,7 @@ Finally, we express our profound love and gratitude to our families, parents, an
     - [4.4.5 System Hardware Throughput and Built-in Diagnostic Scanner Performance](#445-system-hardware-throughput-and-built-in-diagnostic-scanner-performance)
     - [4.4.6 Role-Based Access Control (RBAC) and System Security](#446-role-based-access-control-rbac-and-system-security)
   - [4.5 Stakeholder Usability and Client Acceptance Evaluation (TMC Malaybalay)](#45-stakeholder-usability-and-client-acceptance-evaluation-tmc-malaybalay)
-  - [4.6 Compliance with Defense Panel Recommendations](#46-compliance-with-defense-panel-recommendations)
-- [5. CONCLUSION AND RECOMMENDATIONS](#5-conclusion-and-recommendations)
+  - [5. CONCLUSION AND RECOMMENDATIONS](#5-conclusion-and-recommendations)
   - [5.1 Conclusion](#51-conclusion)
   - [5.2 Recommendations for Future Work](#52-recommendations-for-future-work)
 - [REFERENCES](#references)
@@ -158,7 +157,6 @@ Finally, we express our profound love and gratitude to our families, parents, an
 - **Table 4-10.** Evaluation Results: Usability Mean Ratings from TMC Personnel
 - **Table 4-11.** Evaluation Results: Reliability Mean Ratings from TMC Personnel
 - **Table 4-12.** Overall ISO/IEC 25010 Evaluation Summary
-- **Table 4-13.** Defense Panel Recommendations and Actions Taken Compliance Matrix
 
 ---
 
@@ -238,16 +236,22 @@ This study provides tangible benefits to multiple stakeholders in urban mobility
 
 ### 1.5 Scope and Delimitations
 
-- **Scope**:
-  - Focuses on the design, implementation, and empirical evaluation of an AI-assisted yellow box monitoring system tailored for Malaybalay City, Bukidnon.
-  - Video inputs utilize fixed CCTV feeds and high-definition video files (1080p, 30 FPS) covering designated yellow box intersections along major thoroughfares (e.g., Sayre Highway – Fortich St.).
-  - Incorporates real-time multi-class vehicle detection, centroid tracking, mathematical point-in-polygon spatial containment checking, temporal dwell-time accumulation, license plate extraction, and web dashboard visualization.
-  - Evaluation encompasses bench testing for detection accuracy, FPS throughput, and a structured ISO/IEC 25010 evaluation administered to active TMC officers.
-- **Delimitations**:
-  - Primary monitoring is delimited to **yellow box stop-time violations** (vehicles remaining stationary within the marked grid beyond the allowable dwell threshold, typically set to 3.0–5.0 seconds).
-  - Other traffic violations, such as excessive speeding, illegal U-turns, counterflow driving, or red-light running outside the yellow box boundary, are outside the primary detection pipeline.
-  - The system acts as a **decision-support and evidence-gathering instrument**; it does not automatically levy financial penalties without human review and verification by an authorized TMC officer, in strict adherence to legal due process.
-  - License plate OCR (ALPR) depends on camera angle, optical zoom, and illumination; when visual resolution is insufficient due to wide-angle CCTV mounting distances, the system gracefully falls back to visual classification and color tagging while marking ALPR as unread/bypassed.
+The scope and delimitations of the study define the technical, operational, and environmental boundaries of the developed system:
+
+- **Scope of the Study**:
+  - **Core Objective & Target Focus**: The study focuses on the design, development, and empirical evaluation of an intelligent, vision-based yellow box zone monitoring system tailored for the Traffic Management Center (TMC) of Malaybalay City, Bukidnon. The system places primary emphasis on detecting and monitoring public utility multicabs and passenger jeepneys—the predominant public transportation modalities traversing Sayre Highway – Fortich Street—alongside mixed traffic entities (motorized tricycles, private sedans/SUVs, buses, commercial trucks, and motorcycles).
+  - **Surveillance Input & Operational Environment**: The system processes high-definition video feeds formatted at 1080p resolution at 30 frames per second (FPS), captured from fixed CCTV cameras positioned at major intersection yellow box zones along Sayre Highway – Fortich Street.
+  - **Algorithmic & Software Capabilities**: The solution integrates real-time multi-class vehicle detection using a pre-trained YOLOv8 convolutional vision backbone, persistent Centroid Multi-Object Tracking, Ray-Casting Point-in-Polygon (PIP) spatial containment verification, inter-frame displacement velocity filtering, temporal dwell-time accumulation, dual-space vehicle color classification, Automatic License Plate Recognition (ALPR) with automated resolution fallback, and a centralized React 19 web-based command dashboard.
+  - **Evaluation Scope**: System validation comprises empirical bench testing (detection rates, tracking continuity, spatial accuracy, timing error analysis, and alert dispatch latency) under diverse traffic conditions, including peak-hour high-traffic scenarios with over 100 observed vehicles, alongside formal ISO/IEC 25010 software product quality evaluations administered to active TMC personnel ($N = 10$).
+
+- **Delimitations and Technical Limitations**:
+  - **Violation Boundary Delimitation**: The monitoring capability is strictly delimited to **yellow box stop-time violations**, defined as vehicles remaining stationary within the marked yellow box boundary beyond the allowable dwell-time threshold (calibrated by default to 3.0 to 5.0 seconds). Other traffic violations, such as excessive speeding, illegal U-turns, counterflow driving, and red-light running outside the yellow box perimeter, are excluded from the primary detection pipeline.
+  - **Camera Quality, Resolution, and Distance**: System performance is intrinsically bounded by the optical quality and effective resolution of the input camera. While 1080p surveillance video is highly effective for vehicle detection and spatial localization, fine alphanumeric character extraction requires adequate optical pixel density ($\ge 35 \times 110\text{ pixels}$). Standard wide-angle intersection CCTV cameras provide broad coverage but render distant vehicle plates at $16 \times 32\text{ pixels}$ or lower, causing optical character degradation. In such scenarios, the system is delimited to visual attribute extraction (vehicle type and paint color) while flagging the plate record for manual review.
+  - **Camera Mounting Height and Angle**: The system assumes an elevated camera perspective mounted between 4.5 and 7.0 meters above the road surface, angled downward toward the yellow box. Extreme angles, ground-level views, or severe perspective distortion may degrade ground-contact reference point estimation and bounding box fidelity.
+  - **Lighting, Atmospheric, and Environmental Conditions**: Optical detection performance varies with environmental illumination. Under intense midday sunlight, specular reflections and solar glare on stainless-steel multicab canopies can affect color extraction; deep underbody and building shadows alter localized contrast; rainy conditions introduce optical blur and wet road reflections; and nighttime or low-light conditions diminish color contrast and boundary visibility.
+  - **Vehicle Occlusion During Dense Queuing**: In dense intersection gridlock, low-profile vehicles (such as motorcycles and motorized tricycles) may be partially or temporarily occluded behind tall passenger multicabs or heavy commercial trucks, momentarily interrupting visual centroid tracking.
+  - **Heavy Traffic and Processing Throughput**: While the multi-object tracker supports concurrent multi-vehicle monitoring, processing throughput depends on the host machine's hardware capabilities. Deployments without dedicated GPU acceleration may experience reduced frame rates during high-density traffic intervals exceeding 100 simultaneous detections.
+  - **Decision-Support Legal Constraint**: The system functions strictly as an **intelligent decision-support and evidence-gathering instrument** under No-Contact Apprehension Policy (NCAP) due process. It does not autonomously impose fines or legal penalties; all flagged violations require human-in-the-loop inspection and formal verification by an authorized TMC officer before citation serving.
 
 ---
 
@@ -432,174 +436,155 @@ The hardware setup represents a field-deployable command center workstation:
 ### 3.2 Methods & Research Design
 
 #### 3.2.1 Research Design
-This study employs a **Developmental Research Design** focusing on the engineering, implementation, and empirical validation of an intelligent software prototype. The methodology follows the structured **Waterfall Model** across five sequential phases: Requirements Analysis, System Design, Implementation, Testing & Evaluation, and Maintenance.
+This study employs a **Developmental Research Design** focusing on the engineering, algorithmic implementation, and empirical validation of an intelligent software prototype for municipal traffic enforcement. Developmental research is particularly suited for this investigation because it establishes a systematic framework for designing, developing, and evaluating technological artifacts that address practical real-world problems. The primary artifact produced is an automated yellow box zone violation monitoring and decision-support system tailored for the Traffic Management Center (TMC) of Malaybalay City.
 
-#### 3.2.2 Process Model (Waterfall Lifecycle)
+The engineering methodology follows the structured **Waterfall Model** across six sequential phases: (1) Planning, (2) System Design, (3) Development, (4) Implementation, (5) Evaluation, and (6) Maintenance. The Waterfall Model was specifically selected because municipal traffic surveillance and No-Contact Apprehension Policy (NCAP) compliance require a rigorous, disciplined, and sequential engineering approach. Developing an automated legal enforcement tool necessitates strict architectural boundaries: system requirements and legal evidentiary standards must be finalized with TMC personnel before architectural modeling; system diagrams, relational schemas, and data flow pipelines must be formalized before software implementation; computer vision pipelines must be integrated and verified before physical field testing at the Sayre Highway – Fortich St. intersection; and rigorous empirical bench testing and ISO/IEC 25010 stakeholder evaluations must precede municipal deployment. Each phase produces verified deliverables that serve as prerequisites for subsequent stages, ensuring system reliability, data integrity, and strict legal chain of custody.
+
+#### 3.2.2 Software Development Process Model (Waterfall Lifecycle)
+
+The six sequential phases of the Waterfall Development Model are detailed below and related directly to the Multicab Yellow Box Zone Monitoring System:
 
 ```mermaid
 flowchart TD
-    A["1. System Analysis & Requirements Gathering"] --> B["2. System Design & Algorithmic Modeling"]
-    B --> C["3. Pre-Trained AI Model Integration & Algorithmic Logic"]
-    C --> D["4. Implementation & System Integration"]
-    D --> E["5. Testing, Field Evaluation & Deployment"]
+    A["A. Planning: Problem Identification, Stakeholder Requirements & Dataset Planning"] --> B["B. System Design: Architectural Modeling, Use Case, DFD, ERD & Module Specs"]
+    B --> C["C. Development: YOLOv8 AI Integration, Spatial Logic, Tracking & Alert Mechanism"]
+    C --> D["D. Implementation: Field Installation, Camera Setup, Polygon Calibration & Testing"]
+    D --> E["E. Evaluation: Accuracy Benchmarking, High-Traffic Trials & ISO/IEC 25010 Survey"]
+    E --> F["F. Maintenance: Software Updates, Threshold Adjustments & Hardware Diagnostics"]
 ```
 
-**Figure 2-1. Waterfall Development Model Lifecycle**
+**[Screenshot Indicator: Figure 3-1. Process Flowchart of the Six-Phase Waterfall Development Model]**
+*Figure 3-1 illustrates the sequential flow of the Waterfall Development Model applied in this study, tracing progress from initial planning and requirements gathering through architectural design, AI software development, field deployment, empirical evaluation, and long-term maintenance.*
 
-#### 3.2.3 Procedures for the Different Phases
+##### A. Planning Phase
+The Planning Phase established the project foundation, identified core operational constraints, and defined technical specifications:
+1. **Problem Identification**: Investigation of recurring intersection gridlocks along major thoroughfares in Malaybalay City, specifically the bottleneck at Sayre Highway – Fortich Street. Field observations revealed that public utility multicabs frequently stop inside the four-sided yellow grid to pick up or unload passengers, obstructing oncoming traffic lanes. Manual monitoring by traffic enforcers is physically hazardous, intermittent, and prone to subjective disputes.
+2. **Project Requirements and System Objectives**: Formulated the core requirements: continuous 24/7 video ingestion, real-time multicab detection, spatial zone containment verification, automated dwell-time accumulation (>3.0-second threshold), sub-100ms audio-visual alerting, tamper-evident digital dossiers, and exportable reports with administrative signatories.
+3. **Intended Users and Stakeholder Roles**: Identified the primary beneficiaries and operational users: Traffic Management Center (TMC) Traffic Officers (operators), the TMC Operations Head / Traffic Director (administrative authority), and System Administrators.
+4. **Hardware and Software Requirements Planning**: Specified the computing infrastructure required for edge execution: an affordable municipal workstation equipped with an Intel Core i5/i7 processor, 16 GB RAM, and an NVIDIA GeForce GTX 1660 GPU (6 GB VRAM) for real-time deep learning inference; 1080p surveillance cameras; a Python/Flask backend; and a React 19 frontend.
+5. **Dataset Planning and Acquisition Protocol**: Planned the collection of real-world traffic video footage from Sayre Highway – Fortich Street across diverse conditions (sunny glare, overcast, rainy, peak morning 7:00–8:30 AM, and afternoon 4:30–6:00 PM hours) to evaluate local vehicle modalities (multicabs, tricycles, cars, buses, trucks, motorcycles).
+6. **Functional and Performance Requirements**: Defined benchmarks: minimum 30 FPS video throughput, alert notification dispatch latency under 100 ms, detection precision above 90%, and robust multi-vehicle tracking persistence.
 
-The developmental research procedure is organized into sequential phases following the Waterfall Software Development Life Cycle (SDLC):
-
-##### Phase 1: System Analysis and Requirements Gathering
-During the initial analysis phase, the researchers conducted on-site field visits, traffic pattern observations, and structured stakeholder consultations with administrative and field personnel of the **Traffic Management Center (TMC) of Malaybalay City**. These investigations identified key operational requirements and engineering constraints:
-1. **Intersection Bottlenecks**: Identifying primary intersection yellow box congestion hotspots along major arterial roads, specifically along **Sayre Highway – Fortich Street**, where public utility multicabs frequently engage in illegal passenger loading and prolonged stoppages within intersection boundaries.
-2. **Operational Thresholds**: Establishing an acceptable, legally defensible stopping duration threshold (calibrated by default to $3.0\text{ to }5.0\text{ seconds}$) that allows momentary traffic yielding while penalizing prolonged lane blockades.
-3. **Alerting Requirements**: Establishing the need for instant audio-visual notification on the TMC monitoring console, eliminating the requirement for enforcers to maintain uninterrupted manual surveillance over video streams.
-4. **Legal Evidentiary Standards**: Formulating reporting requirements compliant with No-Contact Apprehension Policy (NCAP) standards, including custom date-range queries, tamper-evident digital dossiers, vehicular attribute tagging (classification and stabilized body color), and formal administrative signatory blocks.
-
-##### Phase 2: Implementation Phase (System Design, Modeling, and Architectural Specification)
-Before initiating software development and physical hardware integration, the complete system was rigorously modeled and designed. This phase establishes the operational interactions, data flows, modular structure, multi-tiered architecture, and resource requirements necessary to construct an end-to-end intelligent traffic monitoring solution.
-
-###### 1. Use Case Modeling and System Actor Interactions (Figure 3-1)
-The functional requirements of the monitoring system are structured around two distinct operational actors: the **Traffic Management Center (TMC) Officer** and the **System Administrator (Super Admin)**.
+##### B. System Design Phase
+The System Design Phase translated functional requirements into technical blueprints before software implementation:
+1. **Component Interaction Workflow**: Defined the operational interaction between system components: the CCTV camera streams raw video frames to the edge workstation; the pre-trained YOLOv8 computer vision model detects vehicles and extracts bounding boxes; the Centroid Multi-Object Tracker tracks vehicles across frames; the Ray-Casting Point-in-Polygon (PIP) engine checks whether ground-contact points enter the calibrated yellow box polygon; the dwell-time accumulator tracks stationary durations; upon violation confirmation ($t_{\text{stop}} \ge 3.0\text{ s}$), the snapshot engine captures high-resolution evidence, extracts body paint colors, and reads plate characters; the violation dossier is archived in the SQLite database; the asynchronous event engine pushes alerts to the React dashboard; and the dashboard sounds a Web Audio chime and presents interactive review controls.
+2. **Use Case Modeling (Figure 3-2)**: Accurately models the actual system functions and authorized user roles, explicitly illustrating the core automated process: detecting a multicab entering the yellow box zone, monitoring its presence or stopping behavior, determining whether a violation has occurred, and generating an alert when necessary.
 
 ```mermaid
 flowchart LR
-    subgraph Actors ["System Actors"]
+    subgraph Actors ["Authorized System Actors"]
         direction TB
-        ActorAdmin(["System Administrator\n(Super Admin)"])
         ActorOfficer(["TMC Traffic Officer\n(Operator)"])
+        ActorAdmin(["System Administrator\n(Super Admin)"])
     end
 
-    subgraph TMC_System ["AI-Powered Yellow Box Monitoring System"]
+    subgraph CoreWorkflow ["Automated Yellow Box Monitoring Workflow"]
         direction TB
-        UC1["View Live Annotated CCTV Stream"]
-        UC2["Receive Real-Time Audio-Visual Alerts"]
-        UC3["Inspect Violation Evidence Dossier"]
-        UC4["Verify & Manually Correct Plate Numbers"]
-        UC5["Filter & Search Historical Violation Logs"]
-        UC6["Export Official PDF Reports with Signatories"]
-        UC7["Export Machine-Readable Analytics (.xlsx)"]
-        UC8["Calibrate Yellow Box 4-Point Polygon"]
-        UC9["Adjust Dwell-Time Violation Thresholds"]
-        UC10["Execute Hardware Readiness Diagnostic Scanner"]
-        UC11["Toggle ALPR / OCR Subsystem"]
-        UC12["Manage User Accounts & Security Audit Logs"]
+        UC_Detect["Detect Multicab Entering Yellow Box Zone"]
+        UC_Monitor["Monitor Vehicle Presence & Stopping Behavior"]
+        UC_Determine["Determine Yellow Box Violation (Dwell >= 3.0s)"]
+        UC_Alert["Generate Instant Audio-Visual Violation Alert"]
     end
 
-    ActorOfficer --> UC1
-    ActorOfficer --> UC2
-    ActorOfficer --> UC3
-    ActorOfficer --> UC4
-    ActorOfficer --> UC5
-    ActorOfficer --> UC6
-    ActorOfficer --> UC7
+    subgraph OperatorFunctions ["TMC Operator Functions"]
+        direction TB
+        UC_Stream["View Live Annotated CCTV Video Feed"]
+        UC_Review["Inspect Captured Evidentiary Snapshot Dossier"]
+        UC_Plate["Verify / Manually Update License Plate Number"]
+        UC_Filter["Filter & Query Historical Violation Logs"]
+        UC_Report["Export Official PDF Citation Reports with Signatories"]
+    end
 
-    ActorAdmin --> UC1
-    ActorAdmin --> UC2
-    ActorAdmin --> UC3
-    ActorAdmin --> UC4
-    ActorAdmin --> UC5
-    ActorAdmin --> UC6
-    ActorAdmin --> UC7
-    ActorAdmin --> UC8
-    ActorAdmin --> UC9
-    ActorAdmin --> UC10
-    ActorAdmin --> UC11
-    ActorAdmin --> UC12
+    subgraph AdminFunctions ["Administrative Functions"]
+        direction TB
+        UC_Calibrate["Calibrate 4-Point Yellow Box Zone Polygon"]
+        UC_Threshold["Configure Dwell-Time Violation Thresholds"]
+        UC_Diag["Execute Built-in Hardware Diagnostic Scanner"]
+        UC_Users["Manage User Accounts & Role-Based Permissions"]
+    end
+
+    UC_Detect --> UC_Monitor
+    UC_Monitor --> UC_Determine
+    UC_Determine --> UC_Alert
+
+    ActorOfficer --> UC_Stream
+    ActorOfficer --> UC_Alert
+    ActorOfficer --> UC_Review
+    ActorOfficer --> UC_Plate
+    ActorOfficer --> UC_Filter
+    ActorOfficer --> UC_Report
+
+    ActorAdmin --> UC_Stream
+    ActorAdmin --> UC_Review
+    ActorAdmin --> UC_Report
+    ActorAdmin --> UC_Calibrate
+    ActorAdmin --> UC_Threshold
+    ActorAdmin --> UC_Diag
+    ActorAdmin --> UC_Users
 ```
 
-**Figure 3-1. Use Case Diagram for TMC Command Center Operations**
+**[Screenshot Indicator: Figure 3-2. Use Case Diagram for Multicab Yellow Box Zone Monitoring System]**
+*Figure 3-2 illustrates the Use Case model representing authorized actor roles (TMC Traffic Officer and Super Admin) and the automated workflow for detecting multicabs entering the yellow box, monitoring stopping behavior, evaluating violation criteria, and triggering real-time alerts.*
 
-- **TMC Traffic Officer (Operator)**: Interacts with the presentation layer during daily enforcement shifts. The officer monitors live video feeds annotated with zone boundaries and vehicle bounding boxes, receives instantaneous audio-visual chimes and toast alerts when a multicab commits a yellow box stoppage, inspects high-resolution evidence snapshots with multi-touch zoom and clarity enhancement, manually reviews or updates recognized license plates, performs dynamic date-range queries across historical violation records, and exports official citation reports formatted with institutional headers and legal signatory lines.
-- **System Administrator (Super Admin)**: Possesses all operator capabilities plus privileged configuration and maintenance authority. The administrator can interactively adjust the 4-vertex yellow box polygon directly on the live camera canvas, configure dwell-time thresholds, toggle OCR plate extraction sensitivity, run built-in hardware diagnostic scans to assess GPU/CPU performance, provision user credentials, and review tamper-evident system audit trails.
-
-###### 2. Data Flow Modeling (Data Flow Diagram - DFD Level-1) (Figure 4-1)
-The Data Flow Diagram illustrates how visual information moves from physical intersection optical sensors through the AI processing pipeline, relational storage, and command center interfaces.
+3. **Data Flow Modeling (Level-1 DFD - Figure 3-3)**: Traces the transformation of visual data from camera ingestion through detection, tracking, spatial containment, dwell accumulation, database storage, and client dashboard delivery.
 
 ```mermaid
 flowchart TD
-    Camera["CCTV IP Camera / Video Source"] -->|"1. Raw Video Frames (RTSP/MJPEG)"| StreamEngine["Video Stream Ingestion Engine"]
-    StreamEngine -->|"2. Decoded Frame Arrays"| AIModule["AI Detection Model (YOLOv8)"]
-    AIModule -->|"3. Bounding Boxes, Classes & Confidences"| Tracker["Vehicle Tracking & Centroid Engine"]
-    Tracker -->|"4. Persistent Track IDs & Centroids"| SpatialEngine["Spatial Polygon & Dwell Timer"]
-    Config[("Zone Configuration File")] -->|"Zone Vertices (x,y)"| SpatialEngine
-    
-    SpatialEngine -->|"5. Zone Entry Trigger"| PlateCache["Temporary Memory Plate Cache"]
-    Camera -.->|"High-Res Plate Region"| PlateCache
-    
-    SpatialEngine -->|"6. Confirmed Violation (Dwell >= Threshold)"| ViolationEngine["Violation Dossier Packaging Engine"]
-    PlateCache -->|"7. Cached Plate & Snapshot"| ViolationEngine
-    
-    ViolationEngine -->|"8. Commit Violation Dossier"| Database[("SQLite Relational Database")]
-    ViolationEngine -->|"9. Thread Wakeup Event"| EventBus["Asynchronous Event Bus"]
-    
-    Database -->|"10. Historical Data & Snapshots"| APIBackend["Flask REST API Server"]
-    EventBus -->|"11. Immediate Push Notification"| APIBackend
-    
-    APIBackend -->|"12. Live Stream, Alerts & JSON"| Dashboard["TMC Command Center Dashboard"]
-    Dashboard -->|"13. Generate Official Report"| ReportEngine["PDF / Excel Report Generator"]
+    Camera["CCTV Camera / Video Input"] -->|"1. Raw Video Stream (1080p, 30 FPS)"| Ingest["Video Stream Ingestion Engine"]
+    Ingest -->|"2. Decoded Frame Arrays"| AI_Det["Pre-Trained YOLOv8 Object Detector"]
+    AI_Det -->|"3. Bounding Boxes & Vehicle Classes"| Tracker["Centroid Multi-Object Tracker"]
+    Tracker -->|"4. Persistent Track ID & Centroid"| Spatial["Ray-Casting PIP Spatial Engine"]
+    Config[("Zone Polygon Config File")] -->|"Zone Vertices (x,y)"| Spatial
+    Spatial -->|"5. Stationary Dwell Accumulation"| DwellTimer["Dwell-Time Accumulation Engine"]
+    DwellTimer -->|"6. Violation Flagged (t_stop >= 3.0s)"| Packaging["Evidence Dossier Packaging Engine"]
+    Camera -.->|"High-Res Crop"| Packaging
+    Packaging -->|"7. Commit Violation Dossier"| Database[("SQLite Relational Database (WAL)")]
+    Packaging -->|"8. Trigger Wakeup Signal"| EventBus["Asynchronous Long-Polling Event Bus"]
+    Database -->|"9. Query Violation Records"| BackendAPI["Flask REST API Server"]
+    EventBus -->|"10. Push Violation Notification"| BackendAPI
+    BackendAPI -->|"11. MJPEG Stream & Live Alerts"| Dashboard["TMC Command Dashboard (React 19)"]
+    Dashboard -->|"12. Generate Official PDF"| ReportGen["PDF / Excel Report Engine"]
 ```
 
-**Figure 4-1. Level-1 Data Flow Diagram (DFD) of Video Ingestion, Detection, and Logging**
+**[Screenshot Indicator: Figure 3-3. Level-1 Data Flow Diagram (DFD) of Video Ingestion, Multicab Detection, and Violation Logging]**
+*Figure 3-3 illustrates the Level-1 Data Flow Diagram, detailing how video frames are processed across the detection, tracking, spatial checking, violation logging, and alerting pipelines.*
 
-As modeled in **Figure 4-1**, the data flow follows a structured, privacy-preserving lifecycle:
-1. *Video Ingestion*: Physical CCTV cameras capture high-definition traffic feeds and transmit frames via RTSP or video file streams to the ingest engine.
-2. *Object Detection*: Decoded RGB frames are fed into the YOLOv8 deep learning network, which infers bounding box coordinates, vehicle classes (specifically multicabs, tricycles, cars, buses, trucks, and motorcycles), and detection confidence scores.
-3. *Tracking & Centroid Matching*: Centroids are associated across consecutive frames using Euclidean distance matrices, assigning a persistent unique tracking ID to each vehicle.
-4. *Spatial Containment & Zone Entry*: The bottom-center reference point of each tracked vehicle is tested against the 4-vertex yellow box polygon using ray-casting point-in-polygon geometry.
-5. *Conditional Plate Caching*: Upon initial zone entry, an asynchronous optical character recognition (OCR) worker extracts the multicab's license plate characters into a volatile, temporary memory cache (`self.cached_plates`). This data is **not** committed to the permanent database at this stage.
-6. *Violation Threshold Assessment*: An independent stop timer continuously accumulates dwell time while the vehicle remains stationary inside the yellow box polygon. If the vehicle leaves the zone legally, the cached plate is purged from memory. If the dwell duration reaches or exceeds the threshold ($T_{\text{threshold}} \ge 3.0\text{ seconds}$), a violation is confirmed.
-7. *Evidence Packaging & Database Archival*: The packaging engine binds the high-resolution snapshot, vehicle type, classified paint color, dwell time, timestamp, and cached plate number into an immutable record committed to SQLite.
-8. *Alert Generation & Dashboard Notification*: The system signals an asynchronous thread event (`new_violation_event`), immediately pushing the infraction to the TMC dashboard via HTTP long-polling, sounding a Web Audio chime, displaying an alert toast, and queuing the event for operator review.
-
-###### 3. System Design and Modular Decomposition
-The software architecture is decomposed into seven cohesive, decoupled modules to ensure maintainability, low execution latency, and clear separation of concerns:
-- **Module 1: Video Stream Ingestion and Frame Extraction Module (`utils/camera.py`)**: Manages optical hardware interfaces, handles RTSP network stream reconnects, extracts raw frames at 30 FPS, and resizes image buffers for downstream processing without dropping frames.
-- **Module 2: AI Vehicle Detection and Classification Module (`ai_model/detect.py`)**: Wraps the pre-trained YOLOv8 deep learning network. Performs real-time multi-class vehicle inference, filters background noise, applies Non-Maximum Suppression (NMS), and isolates multicabs and public transport modalities from general traffic without requiring model retraining.
-- **Module 3: Vehicle Tracking and Centroid Association Module (`ai_model/tracker.py`)**: Computes Euclidean distance cost matrices between vehicle centroids across consecutive frames, assigns persistent tracking IDs, and maintains a multi-frame persistence buffer to survive momentary visual occlusions.
-- **Module 4: Spatial Zone Containment and Dwell-Time Computation Module (`utils/monitoring_service.py`)**: Calculates the ground-contact reference point $P_{\text{ref}}$, executes ray-casting Point-in-Polygon (PIP) mathematical tests against the yellow box coordinates, gates vehicle speed via frame-to-frame displacement thresholds ($\Delta d_t < 4.0\text{ px}$), and increments independent stop timers.
-- **Module 5: Evidentiary Snapshot, Color Extraction, and Asynchronous ALPR Module (`ai_model/color_detector.py`, `ai_model/lpr.py`)**: Captures high-resolution evidentiary snapshots, extracts stabilized vehicle colors using dual-space CIELAB + HSV clustering with multi-frame temporal voting, and runs background worker threads to read license plates without stalling the primary video loop.
-- **Module 6: Backend REST API, Event Notification, and Storage Engine (`app.py`, `database/database.py`)**: Hosts Flask RESTful endpoints, manages SQLite3 embedded storage with Write-Ahead Logging (WAL) concurrency, coordinates user authentication, and dispatches sub-50ms long-polling violation alerts.
-- **Module 7: Command Center Web Dashboard and Reporting Module (`frontend/src/`)**: A responsive React 19 Single-Page Application (SPA) providing real-time canvas overlays, Web Audio synthesized alert chimes, an unviewed alert queue, dynamic date-range analytics, and client-side PDF/Excel export engines with formal TMC administrative signatory blocks.
-
-###### 4. System Architecture (Figure 5-1)
-The physical and logical structure of the system is organized into a five-tier architecture, spanning from physical edge capture devices to the client presentation layer:
+4. **System Architecture (Figure 3-4)**: Formalizes the multi-tier system topology: Sensing Layer, Edge AI Processing Layer, Data Storage Layer, Application Backend Layer, and Client Command Center.
 
 ```mermaid
 flowchart TD
     subgraph SensingLayer ["1. SENSING LAYER"]
-        C1["Fixed 1080p Intersection CCTV Camera"]
-        C2["IP Camera Stream (RTSP / H.264)"]
-        C3["Archival Test Video Input"]
+        C1["Fixed 1080p CCTV Intersection Camera"]
+        C2["Network IP Camera (RTSP Stream)"]
+        C3["Archival Test Video Footage"]
     end
 
     subgraph EdgeAI ["2. EDGE AI PROCESSING LAYER"]
-        VIn["OpenCV Video Stream Ingestion"]
-        YOLO["YOLOv8 Deep Learning Detector"]
-        Tracker["Centroid Multi-Object Tracker"]
+        VIn["OpenCV Video Stream Handler"]
+        YOLO["Pre-Trained YOLOv8 Object Detector"]
+        Tracker["Centroid Multi-Object Tracker Engine"]
         PIP["Ray-Casting Spatial Containment Engine"]
-        LPR["Asynchronous EasyOCR / ALPR Worker"]
-        Color["Dual-Space CIELAB + HSV Color Classifier"]
-        HScan["Hardware Diagnostic & Performance Scanner"]
+        ColorEng["Dual-Space CIELAB + HSV Color Classifier"]
+        LPREng["EasyOCR License Plate Subsystem & Fallback"]
+        HDiag["Hardware Diagnostic & Performance Scanner"]
     end
 
     subgraph DataLayer ["3. DATA STORAGE LAYER"]
-        DB[("SQLite Relational Database (WAL Mode)")]
-        MediaStore[("Tamper-Evident Image Snapshot Store")]
+        DB[("SQLite Database (WAL Journaling)")]
+        DiskStore[("Evidence Snapshot Directory Storage")]
     end
 
-    subgraph AppLayer ["4. APPLICATION & BACKEND API LAYER"]
+    subgraph AppLayer ["4. APPLICATION & API BACKEND"]
         Flask["Flask RESTful API Server"]
-        EventBus["Thread Synchronization Event Bus"]
-        Auth["Role-Based Access Control (RBAC)"]
+        EventSync["Threading.Event Synchronization Bus"]
+        Security["Role-Based Access Control (RBAC)"]
     end
 
-    subgraph ClientCenter ["5. CLIENT COMMAND CENTER (PRESENTATION LAYER)"]
-        ReactUI["React 19 Command Center SPA"]
-        LiveStream["MJPEG Low-Latency Video Canvas"]
-        LiveAlerts["Real-Time Audio-Visual Alert Engine"]
-        Reports["Dynamic Analytics & PDF Export Engine"]
+    subgraph ClientCenter ["5. CLIENT COMMAND CENTER DASHBOARD"]
+        ReactUI["React 19 Single Page Application"]
+        StreamView["Low-Latency MJPEG Video Canvas"]
+        AlertPanel["Live Audio-Visual Alert Notification Panel"]
+        ReportView["Analytics & Official PDF Report Generator"]
     end
 
     C1 --> VIn
@@ -608,58 +593,29 @@ flowchart TD
     VIn --> YOLO
     YOLO --> Tracker
     Tracker --> PIP
-    PIP -->|"Zone Entry"| LPR
-    PIP -->|"Violation Confirmed"| MediaStore
-    PIP -->|"Violation Confirmed"| Color
-    LPR --> DB
-    Color --> DB
-    HScan --> Flask
-    DB -->|"Query & Sync"| Flask
-    Flask --> EventBus
-    EventBus --> LiveAlerts
-    Flask --> LiveStream
+    PIP -->|"Stationary >= 3.0s"| ColorEng
+    PIP -->|"Stationary >= 3.0s"| LPREng
+    PIP -->|"Stationary >= 3.0s"| DiskStore
+    ColorEng --> DB
+    LPREng --> DB
+    HDiag --> Flask
+    DB -->|"Sync & Query"| Flask
+    Flask --> EventSync
+    EventSync --> AlertPanel
+    Flask --> StreamView
     Flask --> ReactUI
-    Flask --> Reports
-    Auth --> ReactUI
+    Flask --> ReportView
 ```
 
-**Figure 5-1. System Architecture Diagram**
+**[Screenshot Indicator: Figure 3-4. System Architecture Diagram of Edge Camera, Flask AI Backend, SQLite DB, and React Frontend]**
+*Figure 3-4 illustrates the five-tier system architecture, showing data flow from optical intersection sensors to edge AI inference, transactional archival, and browser command console presentation.*
 
-- **Layer 1: Sensing Layer**: Consists of high-definition (1080p @ 30 FPS) optical CCTV cameras overlooking yellow box intersections. Cameras transmit digitized video frames to the local command center workstation via Gigabit Ethernet local area network (LAN).
-- **Layer 2: Edge AI Processing Layer**: Executes directly on local GPU-accelerated edge workstations. OpenCV decodes video streams; PyTorch and Ultralytics YOLOv8 perform parallel tensor inference; custom Python routines compute centroid tracking, spatial polygon containment, temporal color voting, and asynchronous OCR plate extraction.
-- **Layer 3: Data Storage Layer**: Built upon an embedded SQLite3 relational database configured in Write-Ahead Logging (`WAL`) mode. This provides zero-latency write operations without database locking, accompanied by a structured file repository storing timestamped violation snapshots.
-- **Layer 4: Application and Backend API Layer**: A multi-threaded Flask application serving REST endpoints (`/api/violations`, `/api/stats`, `/api/system_info`, `/api/wait_for_violation`), enforcing Role-Based Access Control (RBAC), and using Python `threading.Event` primitives for sub-50ms push alerting.
-- **Layer 5: Client Command Center (Presentation Layer)**: A browser-based Single-Page Application constructed with React 19, Tailwind CSS, Lucide icons, and Framer Motion. It provides live video monitoring, interactive zone calibration, Web Audio procedural chime generation, dynamic date-range analytics, and legal PDF citation exports.
-
-###### 5. Hardware and Software Implementation Requirements
-To ensure dependable continuous operation, the system requirements were defined based on field workloads and computational demands:
-
-- **Software Requirements (Table 3-1)**:
-  - *Python 3.10 / 3.12*: Host runtime for deep learning inference, image processing, and backend web services.
-  - *OpenCV 4.10.x*: Video stream decoding, matrix operations, canvas drawing, and ray-casting geometric computations.
-  - *Ultralytics YOLOv8 / PyTorch 2.5.x+cu121*: CUDA-accelerated object detection and classification.
-  - *EasyOCR 1.7.x*: Deep optical character recognition for extracting license plate numbers.
-  - *Flask 3.0.x & Flask-CORS*: Micro-framework providing RESTful API endpoints and streaming pipelines.
-  - *SQLite3*: Relational database providing embedded, zero-configuration transactional storage.
-  - *React 19 & Vite*: Modern frontend framework delivering responsive client-side rendering.
-  - *Tailwind CSS & Framer Motion*: Declarative styling system and animation engine for command center aesthetics.
-  - *jsPDF & jspdf-autotable*: Client-side document generation library producing official PDF dossiers.
-
-- **Hardware Requirements (Table 3-2)**:
-  - *Processor (CPU)*: Intel Core i5/i7 (6 to 8 cores) to handle multi-threaded video decoding, tracking, and web API handling.
-  - *Graphics Card (GPU)*: Dedicated NVIDIA GPU (minimum GTX 1660 6GB; recommended RTX 3060 12GB) with CUDA support for real-time AI inference at $\ge 30\text{ FPS}$.
-  - *System Memory (RAM)*: Minimum 16 GB DDR4/DDR5 to maintain frame buffers, model weights, and multi-object tracking states simultaneously.
-  - *Storage*: 512 GB NVMe M.2 SSD offering high-speed I/O for continuous video stream buffering and photographic evidence storage.
-  - *Camera*: Full HD 1080p (1920×1080 @ 30 FPS) optical CCTV camera with RTSP/IP network capability.
-  - *Display*: 24-inch Full HD LED monitor (1920×1080) for the TMC command center operator console.
-
-###### 6. Database Schema and Entity-Relationship Modeling (Figure 6-1)
-The data storage architecture is designed to enforce relational integrity, data normalization, and an immutable chain of custody for legal traffic enforcement:
+5. **Database Schema and Entity-Relationship Diagram (Figure 3-5)**: Designed with third normal form (3NF) relational tables (`violations`, `vehicle_types`, `zones`, `users`, `audit_logs`), enforced foreign keys, and WAL journaling.
 
 ```mermaid
 erDiagram
     VEHICLE_TYPES ||--o{ VIOLATIONS : classifies
-    ZONES ||--o{ VIOLATIONS : contains
+    ZONES ||--o{ VIOLATIONS : locates
     USERS ||--o{ AUDIT_LOGS : performs
 
     VEHICLE_TYPES {
@@ -678,10 +634,10 @@ erDiagram
 
     VIOLATIONS {
         int id PK
-        timestamp violation_timestamp
         string detection_id UK
         int vehicle_type_id FK
         int zone_id FK
+        timestamp violation_timestamp
         float stop_duration
         string plate_number
         string vehicle_color
@@ -711,31 +667,44 @@ erDiagram
     }
 ```
 
-**Figure 6-1. Database Schema and Entity-Relationship Diagram**
+**[Screenshot Indicator: Figure 3-5. Relational Database Schema and Entity-Relationship Diagram]**
+*Figure 3-5 depicts the Entity-Relationship Diagram, illustrating relational foreign-key integrity between violation dossiers, vehicle categories, zone configurations, and user audit logs.*
 
-- The `VIOLATIONS` table records each confirmed infraction, indexed by an immutable UUIDv4 (`detection_id`). It stores the precise stop duration, vehicle classification foreign key, zone configuration foreign key, recognized plate number (or fallback status), stabilized vehicle color, photographic snapshot file path, verification state (`recorded`, `reviewed`, or `cited`), and officer notes.
-- The `USERS` and `AUDIT_LOGS` tables maintain system security and traceability by recording administrative logins, threshold recalibrations, and evidence reviews.
+##### C. Development Phase
+The Development Phase focused on implementing the AI model integration and software components:
+1. **Pre-Trained AI Vision Model Integration**: In strict accordance with established computer vision engineering standards and instructor feedback, the study utilizes the pre-trained YOLOv8 architecture (Ultralytics, AGPL-3.0) as an off-the-shelf foundational object detector via Transfer Learning. The pre-trained convolutional backbone provides robust low-level edge, contour, and geometric representations without requiring custom training epochs or loss-function optimization from scratch. Operational inference thresholds were calibrated to an operational confidence threshold of **0.45** and a Non-Maximum Suppression (NMS) IoU threshold of **0.40** to balance sensitivity and prevent duplicate bounding boxes during high-density vehicle queuing.
+2. **Dataset Acquisition and Benchmark Preparation**: Real-world video footage was recorded at the Sayre Highway – Fortich Street intersection. Video sequences were sampled across morning peak (7:00–8:30 AM), afternoon peak (4:30–6:00 PM), and off-peak hours under sunny, overcast, and rainy conditions. Ground-truth annotations were prepared for multicabs/PUJs, motorized tricycles, private cars/SUVs, buses, commercial trucks, and motorcycles to evaluate operational detection and tracking accuracy.
+3. **Vehicle Detection, Tracking, and Spatial Analysis Implementation**:
+   - *Vehicle Detection*: The YOLOv8 model processes incoming 1080p frames at 30 FPS, outputting bounding box coordinates $[x_1, y_1, x_2, y_2]$ and class predictions.
+   - *Centroid Multi-Object Tracking*: Vehicle centroids are matched across consecutive frames using an Euclidean distance cost matrix ($D_{\max} = 60\text{ px}$) with a 5-frame persistence buffer to survive momentary visual occlusions.
+   - *Spatial Containment*: Computes the vehicle's bottom-center road contact coordinate $P_{\text{ref}} = (\frac{x_1 + x_2}{2}, y_2)$ and applies the Ray-Casting Point-in-Polygon (PIP) algorithm with odd-parity intersection testing.
+   - *Dwell-Time Stop Measurement*: Stationary state is determined via inter-frame displacement velocity filtering ($\Delta d_t < 4.0\text{ px}$); dwell duration $\Delta t_{\text{stop}}$ is accumulated from the moment stationary behavior begins; infractions are flagged when $\Delta t_{\text{stop}} \ge 3.0\text{ seconds}$.
+   - *Vehicle Visual Attribute Extraction*: Deploys dual-space CIELAB ($\Delta E^*$) and HSV color classification with Class-Aware Anatomical Panel Sampling and Exponential Moving Average (EMA) temporal voting to isolate vehicle paint color from windshield glare and tarmac shadows.
+   - *ALPR and Resolution Fallback*: Executes background optical character recognition (EasyOCR); if optical resolution is insufficient ($	au_{\text{OCR}} < 0.60$), the system gracefully marks the plate record as "LPR Bypassed / Unread" while preserving the complete evidentiary snapshot for manual review.
+   - *Asynchronous Alert Mechanism*: The backend long-polling event engine wakes connected dashboard clients within 50 ms of violation confirmation, triggering procedural Web Audio chimes (880 Hz / 1175 Hz) and visual toast notifications.
+4. **Hardware-Software Interaction**: The software components communicate through high-throughput interfaces: OpenCV decodes CCTV frames into NumPy memory buffers; PyTorch executes tensor inference on the dedicated NVIDIA GPU; SQLite provides transactional database operations with Write-Ahead Logging; and Flask hosts RESTful endpoints serving the React 19 web frontend.
 
----
+##### D. Implementation Phase
+The Implementation Phase encompassed physical installation, environment configuration, and operational deployment:
+1. **Workstation Installation and Deployment**: The system was deployed on the designated municipal command center workstation at the Traffic Management Center of Malaybalay City. Deployment was automated via a Windows batch launcher script (`start_system.bat`) that initializes virtual environment dependencies, checks GPU readiness, launches the Flask REST backend, and serves the optimized React single-page application.
+2. **Camera Positioning, Mounting Height, and Optical Alignment**: Surveillance cameras were evaluated at elevated vantage points along Sayre Highway – Fortich Street at mounting heights between 4.5 and 7.0 meters. Cameras were oriented with a downward pitch angle ensuring complete coverage of the four-sided yellow grid, clear visibility of road markings, and unambiguous ground contact points for vehicles.
+3. **Interactive Yellow Box Zone Configuration**: Using the dashboard's interactive calibration modal, administrators calibrated the four vertex coordinates $(x, y)$ of the yellow box directly on the live video canvas. The calibrated polygon coordinates were saved to a persistent configuration file (`zone_config.json`) for real-time spatial evaluation.
+4. **Testing Under Actual and Simulated Traffic Conditions**: The deployed system was tested under live intersection traffic feeds and high-definition recorded benchmark sequences, validating continuous video streaming, real-time bounding box rendering, and alert triggering under varied traffic flow intensities.
 
-##### Phase 3: Development Phase (Software-Hardware Interaction and Algorithmic Execution)
-The Development Phase focuses on the concrete interaction between physical hardware components and backend software processes. It details the complete operational lifecycle from optical video capture to AI inference, tracking, dwell timing, conditional plate capture, violation confirmation, alert generation, and database persistence:
+##### E. Evaluation Phase
+The Evaluation Phase assessed the system's empirical accuracy, operational responsiveness, and user acceptability:
+1. **Empirical Benchmarking**: Evaluated vehicle detection success rate, precision, recall, spatial containment accuracy (PIP vs Bounding Box IoU), multi-object tracking continuity, dwell-time measurement error (MAE vs manual stopwatch ground truth), alert notification latency, and hardware frame rates (FPS).
+2. **High-Traffic Testing Scenarios**: Conducted heavy-traffic evaluation sessions processing over 100 observed vehicles during peak morning and afternoon traffic queuing, assessing system tracking persistence, multi-vehicle state management, and absence of redundant alerts.
+3. **User Evaluation Questionnaire (ISO/IEC 25010)**: Formally administered to active Traffic Management Center (TMC) personnel and traffic administrative officers ($N = 10$) in Malaybalay City. The survey instrument evaluated three core software quality characteristics: Functionality (5 items), Usability (5 items), and Reliability (5 items) using a 5-point Likert scale.
+4. **Statistical Analysis Protocol**: Survey responses were analyzed using Descriptive Statistics, specifically the Weighted Composite Mean ($\bar{x}$) and Standard Deviation ($s$), interpreted against a five-interval qualitative scale.
 
-1. **CCTV Optical Capture of Road and Multicab Activity**: The physical CCTV camera overlooks the intersection, continuously streaming optical footage at 1080p resolution and 30 frames per second. OpenCV ingest workers pull frames across the local network interface, converting raw video packets into decoded RGB NumPy image arrays in workstation RAM.
-2. **Deep Learning AI Multicab Detection (Pre-Trained YOLOv8 Inference Pipeline)**: As each frame is ingested, it is formatted to $640 \times 640$ pixels and transferred to GPU memory. The off-the-shelf pre-trained YOLOv8 deep learning network executes a forward pass, predicting candidate bounding boxes $[x_1, y_1, x_2, y_2]$, class labels, and confidence scores directly from pre-trained weights without custom retraining. The system maps detected vehicle bounding boxes to target traffic classes (multicabs, tricycles, cars, buses, and commercial trucks). Detections below the calibrated confidence threshold ($\tau_{\text{conf}} < 0.45$) or outside the roadway region of interest are filtered out.
-3. **Vehicle Tracking and Persistent Tracking ID Assignment (Centroid Association)**: For each detected vehicle, the system calculates its bounding box centroid $(c_x, c_y)$. The Centroid Multi-Object Tracker matches newly observed centroids to existing tracked objects by computing Euclidean distance cost matrices. Tracks within distance threshold $D_{\max} = 60\text{ px}$ retain their unique tracking ID across frames. A 5-frame persistence buffer is maintained, preventing identity loss during brief visual occlusions.
-4. **Spatial Zone Containment Verification and Stop Timer Monitoring**: For each tracked multicab, the system computes its reference bottom-center ground contact coordinate:
-   $$P_{\text{ref}} = \left( \frac{x_1 + x_2}{2}, y_2 \right)$$
-   This ground-contact point represents where the vehicle's wheels touch the asphalt, eliminating roof overhang false positives from adjacent lanes. The Ray-Casting Point-in-Polygon (PIP) engine casts a horizontal ray from $P_{\text{ref}}$ across the calibrated 4-vertex yellow box polygon. If the ray intersects an odd number of boundary edges, the multicab is confirmed to be inside the restricted yellow grid.
-5. **Violation Determination via Predefined Stopping-Time Threshold**: Once inside the yellow box, the multicab's frame-to-frame displacement $\Delta d_t$ is monitored against a movement tolerance threshold ($\epsilon_{\text{movement}} = 4.0\text{ px}$). If $\Delta d_t < \epsilon_{\text{movement}}$, the multicab is classified as stationary. An independent stop timer records entry timestamp $t_{\text{start}}$ and accumulates dwell time $\Delta t_{\text{stop}} = t_{\text{current}} - t_{\text{start}}$. If the multicab remains stationary beyond the allowable threshold ($T_{\text{threshold}} \ge 3.0\text{ seconds}$), an infraction is confirmed.
-6. **Conditional Multicab Plate Capture and Evidentiary Archival**:
-   - *On Yellow Box Entry*: When a multicab enters the yellow box, an asynchronous background thread (`_async_lpr_worker`) crops the vehicle's license plate region and invokes the EasyOCR engine. The recognized plate string is stored exclusively in a temporary, volatile in-memory dictionary (`self.cached_plates[obj_id]`).
-   - *If No Violation Occurs*: If the multicab resumes transit and exits the yellow box polygon before the stop threshold is exceeded, the system removes the timer and immediately purges `self.cached_plates[obj_id]`. No plate information, photograph, or record is written to the database, ensuring strict adherence to privacy principles.
-   - *If Violation is Confirmed*: When the dwell timer exceeds $T_{\text{threshold}}$, the system retrieves the pre-cached plate string from memory, extracts a high-resolution overview snapshot and cropped vehicle image, classifies the vehicle's dominant body color using the dual-space CIELAB + HSV temporal voting engine, and commits the full dossier to SQLite.
-7. **Real-Time Alert Generation and Dashboard Notification Dispatch**: Upon confirming a violation, the backend triggers an asynchronous thread event (`new_violation_event.set()`). Connected TMC dashboard client sessions waiting on the long-polling endpoint (`/api/wait_for_violation`) are immediately released within $<50\text{ ms}$. The React dashboard synthesizes a distinct, two-tone auditory chime (880 Hz followed by 1175 Hz) via the Web Audio API, displays a prominent glowing toast notification, and places the incident at the top of the unviewed alert queue.
-8. **Database Recording, Transactional Integrity, and Evidentiary Archival**: The incident is permanently committed to `violations.db` with status `recorded`. The entry incorporates an immutable UUIDv4 detection identifier, microsecond timestamp, vehicle category, vehicle color, stop duration, plate number (or `LPR Bypassed` indicator), and relative snapshot image URI, ensuring end-to-end evidentiary integrity and legal defensibility.
-
----
+##### F. Maintenance Phase
+The Maintenance Phase establishes operational procedures for ongoing system sustainability, troubleshooting, and enhancement:
+1. **Software Updates and Bug Fixes**: Routine maintenance protocols for updating backend dependencies, applying security patches, and refining dashboard UI features.
+2. **Model Adaptation and Retraining**: Procedures for updating the AI vision model or adjusting confidence thresholds when new vehicle body styles, canopy configurations, or transport modalities are introduced to city streets.
+3. **Zone Recalibration Protocol**: Rapid recalibration procedures using the visual dashboard modal whenever physical camera angles shift due to maintenance, wind displacement, or road repaving.
+4. **Database Maintenance and Archival**: Automated SQLite database maintenance, including weekly database vacuuming (`VACUUM;`), transaction log checkpointing, and scheduled backups of evidentiary snapshots to secondary external storage to manage disk utilization.
+5. **Hardware Health and Diagnostic Routine**: Regular hardware inspections utilizing the dashboard's built-in Diagnostic Scanner to monitor GPU VRAM allocation, CPU utilization, thermal thresholds, and video frame drop rates.
 
 ### 3.2.4 Violation Documentation and Serving Procedure (NCAP-Based)
 
@@ -1215,26 +1184,6 @@ As shown in **Table 4-11**, Reliability earned a composite mean score of **4.64 
 | **Grand Overall Mean** | **4.69** | **0.47** | **Strongly Agree (Outstanding)** |
 
 The grand composite mean score of **4.69 / 5.00** ($SD = 0.47$) indicates that the Traffic Management Center of Malaybalay City overwhelmingly endorsed the system's operational viability, technical robustness, and practical value for modernizing intersection traffic enforcement.
-
----
-
-### 4.6 Compliance with Defense Panel Recommendations
-
-To demonstrate adherence to the academic and operational guidance provided during the system defense, all panel recommendations recorded in the defense minutes were addressed and verified as shown in **Table 4-13**.
-
-#### Table 4-13. Defense Panel Recommendations and Actions Taken Compliance Matrix
-
-| Panel Member | Panel Comment / Suggestion (Secretary's Minutes) | Action Taken & Implementation Details | Status / Section Reference |
-| :--- | :--- | :--- | :---: |
-| **Dr. Rozanne Tuesday G. Flores** | Expand testing locations to areas with higher traffic volume (e.g., Sayre Highway – Fortich St.). | Acquired and benchmarked footage from the high-density intersection at **Sayre Highway – Fortich St., Malaybalay City**, verifying performance under dense morning and afternoon peak queuing. | **Fully Complied**<br>*(Section 4.1.1, Table 4-1)* |
-| **Dr. Rozanne Tuesday G. Flores** | Reports should not be static; allow custom start and end date filtering. | Implemented dynamic date-range filtering in `/api/stats` and the frontend Reports view, enabling arbitrary date-interval queries and temporal histograms. | **Fully Complied**<br>*(Section 4.4.3)* |
-| **Dr. Rozanne Tuesday G. Flores** | Improve report generation with official headers and administrative signatories for TMC. | Implemented client-side PDF export generator formatted with official TMC seals, metadata, statistical charts, and formal signatory blocks for officers and legal adjudicators. | **Fully Complied**<br>*(Section 4.4.4)* |
-| **Dr. Rozanne Tuesday G. Flores** | Ensure recorded violation data includes Location, Timestamp, Plate Number, Vehicle Color, and Snapshot. | Expanded SQLite database schema and evidence capture pipeline to record exact intersection location, microsecond timestamp, vehicle color, plate status, stop duration, and snapshot path. | **Fully Complied**<br>*(Section 4.3.1, 4.3.3)* |
-| **Dr. Rozanne Tuesday G. Flores** | Plate capture logic: store plate only if violation occurs; acknowledge distance/angle OCR limitations. | Implemented single-shot violation logging logic where evidence is permanently stored only upon threshold breach. Added graceful bypass mode for wide-angle CCTV feeds. | **Fully Complied**<br>*(Section 4.2.2, 4.3.2)* |
-| **Anna Rose C. Tan** | Improve dashboard UI aesthetics and visual design. | Redesigned frontend using modern Tailwind CSS glassmorphism, responsive navigation drawer, fluid Framer Motion animations, and dark mode palette. | **Fully Complied**<br>*(Section 4.4.1)* |
-| **Anna Rose C. Tan** | Dashboard should trigger a notification every time a violation is detected. | Integrated Web Audio API procedural chime generator and live toast notifications with instant modal review via thread-synchronized long polling. | **Fully Complied**<br>*(Section 4.2.3, Table 4-5)* |
-| **Roanne Zoe M. Cayanan** | Improve device demo specs; assess whether workstation can handle the workload. | Developed and integrated a built-in **Hardware Diagnostic Scanner** assessing CPU cores, RAM, GPU VRAM, and CUDA status to confirm deployment readiness. | **Fully Complied**<br>*(Section 4.4.5, Table 4-8)* |
-| **Roanne Zoe M. Cayanan** | Focus monitoring on key target vehicles; add secure access controls. | Configured target multi-class detection filters prioritized for public transport (multicabs) and monitored traffic; implemented secure Role-Based Access Control (Super Admin vs. TMC Officer). | **Fully Complied**<br>*(Section 4.1.1, 4.4.6)* |
 
 ---
 

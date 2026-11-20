@@ -44,7 +44,7 @@ class MonitoringService:
         threading.Thread(target=self._load_model_async, daemon=True).start()
         
         self.latest_frame = None
-        self.last_access_time = 0
+        self.last_access_time = time.time()
         self.is_running = False
         self.thread = None
         self.stop_event = threading.Event()
@@ -90,12 +90,16 @@ class MonitoringService:
         """Loads the AI model and LPR in a background thread."""
         try:
             model_path = os.path.join(os.getcwd(), config.MODEL_PATH)
-            self.detector = VehicleDetector(
+            det = VehicleDetector(
                 model_path=model_path,
                 conf_thres=config.CONFIDENCE_THRESHOLD
             )
+            # Warm up CUDA kernels with a dummy frame so detection on frame 1 is instant
+            dummy = np.zeros((720, 1280, 3), dtype=np.uint8)
+            _ = det.detect(dummy)
+            self.detector = det
             self.ai_loading = False
-            logging.info("✓ AI Model loaded and ready (Background Thread)")
+            logging.info("✓ AI Model loaded, warmed up, and ready (Background Thread)")
         except Exception as e:
             self.ai_error = str(e)
             self.ai_loading = False
@@ -139,7 +143,6 @@ class MonitoringService:
                     self.camera.close()
                     self.camera = None
                 
-                self.detector = None # Let GC handle it
                 logging.info("Monitoring thread stopped")
 
     def get_frame(self):
@@ -245,24 +248,31 @@ class MonitoringService:
                                      cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
                                      cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0
                     
-                    if not is_in_zone: continue
-                    
-                    color = (255, 0, 0) # Blue
-                    is_loading = (time.time() - self.vehicle_loading_status.get(obj_id, 0)) < 1.0
+                    vtype = self.vehicle_types.get(obj_id, 'Vehicle')
+                    vlabel = f"{vtype.capitalize()} #{obj_id}"
 
-                    if obj_id in self.violated_ids: 
-                        color = (0, 0, 255) # Red
-                    elif is_loading:
-                        cv2.putText(frame, "LOADING 15s", (x1, y1-20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
-                        color = (0, 255, 255) # Yellow/Cyan
-                    elif obj_id in self.vehicle_timers:
-                        elapsed = time.time() - self.vehicle_timers[obj_id]
-                        rem = max(0, int(time_limit - elapsed))
-                        cv2.putText(frame, f"{rem}s", (x1, y1-20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+                    if is_in_zone:
                         color = (0, 165, 255) # Orange
-                    
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
-                    cv2.putText(frame, f"Vehicle #{obj_id}", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+                        is_loading = (time.time() - self.vehicle_loading_status.get(obj_id, 0)) < 1.0
+
+                        if obj_id in self.violated_ids: 
+                            color = (0, 0, 255) # Red
+                            cv2.putText(frame, "VIOLATION", (x1, max(15, y1 - 25)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
+                        elif is_loading:
+                            cv2.putText(frame, "LOADING 15s", (x1, max(15, y1 - 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+                            color = (0, 255, 255) # Yellow/Cyan
+                        elif obj_id in self.vehicle_timers:
+                            elapsed = time.time() - self.vehicle_timers[obj_id]
+                            rem = max(0, int(time_limit - elapsed))
+                            cv2.putText(frame, f"{rem}s", (x1, max(15, y1 - 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 165, 255), 2)
+                            color = (0, 165, 255) # Orange
+                        
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                        cv2.putText(frame, f"{vlabel} (IN ZONE)", (x1, max(15, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
+                    else:
+                        color = (255, 180, 0) # Sky blue for approaching/tracked vehicles
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
+                        cv2.putText(frame, vlabel, (x1, max(15, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
                 for p in self.current_persons:
                     px1, py1, px2, py2 = p[0], p[1], p[2], p[3]
@@ -605,20 +615,10 @@ class MonitoringService:
                         x1, y1, x2, y2 = map(int, detection['bbox'])
                         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
                         
-                        # -----------------------------------------------------------------
-                        # STRICT ANGLED PERSPECTIVE ROI FILTER (LEFT-LANE DISCARD):
-                        # Completely ignore any vehicle, motorcycle, or pedestrian on the
-                        # left side or center lane of the road.
-                        # -----------------------------------------------------------------
                         if label == 'car':
-                            if not self._is_on_right_side(cx, cy, margin=35) and not self._is_on_right_side(x2, cy, margin=35):
-                                continue
                             raw_vehicles.append((x1, y1, x2, y2, cx, cy, conf, label, v_type))
                         elif label == 'person':
                             if conf < 0.25: continue
-                            # STRICT: Person MUST be on or to the right of the angled left boundary
-                            if not self._is_on_right_side(cx, cy, margin=0) and not self._is_on_right_side(x2, cy, margin=0):
-                                continue
                             raw_persons.append((x1, y1, x2, y2, cx, cy, conf))
 
                     # Deduplicate overlapping vehicle detections (NMS)
@@ -663,23 +663,11 @@ class MonitoringService:
                         vx1, vy1, vx2, vy2, vcx, vcy, vconf, vlabel, vtype = v
                         vehicle_boxes_all.append((vx1, vy1, vx2, vy2, vtype))
                         
-                        is_in_zone = False
-                        if self.yellow_zone is not None:
-                            test_pt1 = (float(vcx), float(vcy))
-                            test_pt2 = (float(vcx), float(vy2))
-                            test_pt3 = (float(vcx), float(vy1 + (vy2 - vy1) * 0.75))
-                            is_in_zone = cv2.pointPolygonTest(self.yellow_zone, test_pt1, False) >= 0 or \
-                                         cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
-                                         cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0
-                        else:
-                            is_in_zone = True
-                        
-                        if is_in_zone:
-                            vehicle_count += 1
-                            rect = (vx1, vy1, vx2, vy2)
-                            detections_for_tracker.append(rect)
-                            bbox_to_label[rect] = vtype
-                            bbox_to_conf[rect] = vconf
+                        vehicle_count += 1
+                        rect = (vx1, vy1, vx2, vy2)
+                        detections_for_tracker.append(rect)
+                        bbox_to_label[rect] = vtype
+                        bbox_to_conf[rect] = vconf
 
                     # 2. Process persons with spatial passenger suppression & boarding detection
                     person_count = 0
@@ -691,10 +679,6 @@ class MonitoringService:
                         
                         # Case A: Passenger / driver seated inside vehicle cabin OR on motorcycle -> SUPPRESS
                         if p_status == 'inside':
-                            continue
-
-                        # Strict check: Person must be strictly on or to the right of the yellow boundary
-                        if not self._is_on_right_side(pcx, pcy, margin=0):
                             continue
 
                         # Case B: Boarding or Alighting (Stepping in/out through door/step)

@@ -35,6 +35,8 @@ static/violations/
 
 # Office temp lock files
 ~$*
+*.bak
+docs/archive/
 
 # Scratch scripts and temp files
 scratch/

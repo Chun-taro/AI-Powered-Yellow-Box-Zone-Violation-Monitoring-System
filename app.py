@@ -1,6 +1,9 @@
 import warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='torch.nn.modules.rnn')
 
+print("[*] Starting AI-Powered Yellow Box Monitoring System...", flush=True)
+print("[*] Loading PyTorch, CUDA GPU drivers, and AI detection engines...", flush=True)
+
 from utils.helpers import setup_logging
 setup_logging()
 
