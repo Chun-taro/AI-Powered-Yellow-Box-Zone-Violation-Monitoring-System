@@ -124,6 +124,13 @@ class Config:
     # Current: 70 = High quality streaming for clear vehicle detection
     # For ultra-high quality, increase to 80-90. For faster, use 50-60.
 
+    # Evidence snapshot configuration
+    # Options:
+    # 'wide_crop' (Default): Generous high-definition context crop (min 960x540) centered on vehicle with full road context
+    # 'full_composite': Full scene HD frame (1920x1080) with yellow zone + vehicle highlight + PiP close-up inset + official banner
+    # 'full_scene': Full camera frame with vehicle highlight and yellow zone
+    EVIDENCE_SNAPSHOT_MODE = os.getenv('EVIDENCE_SNAPSHOT_MODE', 'wide_crop')
+
     # Database settings
     DATABASE_PATH = os.path.join(BASE_DIR, 'database', 'violations.db')
 

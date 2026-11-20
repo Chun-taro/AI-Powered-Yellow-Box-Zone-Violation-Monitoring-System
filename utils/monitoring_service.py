@@ -355,15 +355,146 @@ class MonitoringService:
             return self.color_tracker.get_color(obj_id, fallback_crop=crop_img, vehicle_type=vehicle_type)
         return self.color_detector.detect_color(crop_img, vehicle_type=vehicle_type)
 
+    def _generate_evidence_image(self, frame, bbox, obj_id, label, elapsed, vehicle_color, conf_pct, plate_number, db_timestamp, location_name):
+        """
+        Generates a high-definition, uncropped evidentiary snapshot.
+        Guarantees that 100% of the vehicle is visible with generous margins,
+        yellow box zone boundary context, and professional high-contrast metadata badges.
+        """
+        h, w = frame.shape[:2]
+        x1, y1, x2, y2 = bbox
+        vw = max(1, x2 - x1)
+        vh = max(1, y2 - y1)
+        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+        zone_coords = self.zone_coords or config.YELLOW_BOX_ZONE
+        mode = getattr(config, 'EVIDENCE_SNAPSHOT_MODE', 'wide_crop')
+
+        if mode == 'full_composite':
+            evidence = frame.copy()
+            
+            # 1. Draw Yellow Box Zone Polygon on full scene
+            if zone_coords:
+                pts = np.array(zone_coords, np.int32).reshape((-1, 1, 2))
+                overlay = evidence.copy()
+                cv2.fillPoly(overlay, [pts], (0, 215, 255))
+                cv2.addWeighted(overlay, 0.18, evidence, 0.82, 0, evidence)
+                cv2.polylines(evidence, [pts], isClosed=True, color=(0, 230, 255), thickness=3, lineType=cv2.LINE_AA)
+
+            # 2. Draw Vehicle Violation Bounding Box
+            cv2.rectangle(evidence, (x1, y1), (x2, y2), (0, 0, 255), 3, lineType=cv2.LINE_AA)
+            
+            # Violation header tag
+            tag_text = f"VIOLATION | Stopped: {elapsed:.1f}s"
+            (tw, th), _ = cv2.getTextSize(tag_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+            tag_y = max(th + 12, y1 - 10)
+            cv2.rectangle(evidence, (x1, tag_y - th - 8), (x1 + tw + 16, tag_y + 6), (0, 0, 220), -1)
+            cv2.putText(evidence, tag_text, (x1 + 8, tag_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+
+            # 3. Zoomed Picture-in-Picture Vehicle Inset (placed on opposite side to avoid obscuring vehicle)
+            pad_x = int(max(vw * 0.35, 60))
+            pad_y = int(max(vh * 0.35, 50))
+            ix1 = max(0, x1 - pad_x)
+            iy1 = max(0, y1 - pad_y)
+            ix2 = min(w, x2 + pad_x)
+            iy2 = min(h, y2 + pad_y)
+            v_crop = frame[iy1:iy2, ix1:ix2].copy()
+
+            if v_crop.size > 0:
+                inset_w = 440
+                inset_h = int(inset_w * (v_crop.shape[0] / v_crop.shape[1]))
+                if inset_h > 300:
+                    inset_h = 300
+                    inset_w = int(inset_h * (v_crop.shape[1] / v_crop.shape[0]))
+                
+                resized_crop = cv2.resize(v_crop, (inset_w, inset_h), interpolation=cv2.INTER_LANCZOS4)
+                ins_x = 24 if cx > (w // 2) else (w - inset_w - 24)
+                ins_y = 24
+
+                cv2.rectangle(evidence, (ins_x - 3, ins_y - 3), (ins_x + inset_w + 3, ins_y + inset_h + 3), (0, 0, 0), -1)
+                evidence[ins_y:ins_y+inset_h, ins_x:ins_x+inset_w] = resized_crop
+                cv2.rectangle(evidence, (ins_x, ins_y), (ins_x + inset_w, ins_y + inset_h), (0, 215, 255), 2)
+                
+                badge_text = f"VEHICLE CLOSE-UP (#{obj_id})"
+                cv2.rectangle(evidence, (ins_x, ins_y), (ins_x + 220, ins_y + 24), (0, 0, 0), -1)
+                cv2.putText(evidence, badge_text, (ins_x + 8, ins_y + 17), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+
+            # 4. Bottom Official Metadata Bar
+            banner_h = 60
+            banner_y1 = h - banner_h
+            overlay = evidence.copy()
+            cv2.rectangle(overlay, (0, banner_y1), (w, h), (15, 15, 20), -1)
+            cv2.addWeighted(overlay, 0.85, evidence, 0.15, 0, evidence)
+            cv2.line(evidence, (0, banner_y1), (w, banner_y1), (0, 215, 255), 2)
+
+            row1 = f"TMC MALAYBALAY EVIDENCE DOSSIER | {location_name.upper()}"
+            row2 = f"TIME: {db_timestamp} | VEHICLE: {label.upper()} (#{obj_id}) | COLOR: {vehicle_color} ({conf_pct}%) | PLATE: {plate_number} | DWELL: {elapsed:.1f}s"
+            cv2.putText(evidence, row1, (24, banner_y1 + 22), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 230, 255), 2, cv2.LINE_AA)
+            cv2.putText(evidence, row2, (24, banner_y1 + 46), cv2.FONT_HERSHEY_SIMPLEX, 0.50, (255, 255, 255), 1, cv2.LINE_AA)
+            return evidence
+
+        else:
+            # Default: WIDE CONTEXT CROP (High Definition, centered on vehicle, guarantees whole vehicle is visible)
+            target_w = min(w, max(960, int(vw * 2.2)))
+            target_h = min(h, max(540, int(vh * 2.0)))
+
+            cx1 = max(0, min(cx - target_w // 2, w - target_w))
+            cy1 = max(0, min(cy - target_h // 2, h - target_h))
+            cx2 = min(w, cx1 + target_w)
+            cy2 = min(h, cy1 + target_h)
+
+            crop = frame[cy1:cy2, cx1:cx2].copy()
+            cw, ch = crop.shape[1], crop.shape[0]
+
+            # 1. Draw yellow box zone shifted by crop origin
+            if zone_coords:
+                pts = np.array(zone_coords, np.int32) - np.array([cx1, cy1])
+                pts = pts.reshape((-1, 1, 2))
+                overlay = crop.copy()
+                cv2.fillPoly(overlay, [pts], (0, 215, 255))
+                cv2.addWeighted(overlay, 0.18, crop, 0.82, 0, crop)
+                cv2.polylines(crop, [pts], isClosed=True, color=(0, 230, 255), thickness=3, lineType=cv2.LINE_AA)
+
+            # 2. Shifted vehicle coordinates
+            vx1, vy1 = x1 - cx1, y1 - cy1
+            vx2, vy2 = x2 - cx1, y2 - cy1
+
+            # Red bounding box around vehicle
+            cv2.rectangle(crop, (vx1, vy1), (vx2, vy2), (0, 0, 255), 3, lineType=cv2.LINE_AA)
+
+            # Violation header badge
+            tag_text = f"VIOLATION | Stopped: {elapsed:.1f}s"
+            (tw, th), _ = cv2.getTextSize(tag_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+            tag_y = max(th + 10, vy1 - 10)
+            cv2.rectangle(crop, (vx1, tag_y - th - 8), (vx1 + tw + 16, tag_y + 6), (0, 0, 220), -1)
+            cv2.putText(crop, tag_text, (vx1 + 8, tag_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+
+            # Color & Plate info boxes with high-contrast outlines
+            info_y = min(ch - 55, vy2 + 25)
+            color_text = f"COLOR: {vehicle_color} ({conf_pct}%)"
+            plate_text = f"PLATE: {plate_number}"
+            
+            # High-contrast text: black stroke + crisp fill
+            cv2.putText(crop, color_text, (vx1, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 0, 0), 4, cv2.LINE_AA)
+            cv2.putText(crop, color_text, (vx1, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(crop, plate_text, (vx1, info_y + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 0, 0), 4, cv2.LINE_AA)
+            cv2.putText(crop, plate_text, (vx1, info_y + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2, cv2.LINE_AA)
+
+            # Bottom sleek metadata bar
+            bar_h = 36
+            bar_y = ch - bar_h
+            overlay = crop.copy()
+            cv2.rectangle(overlay, (0, bar_y), (cw, ch), (20, 20, 25), -1)
+            cv2.addWeighted(overlay, 0.85, crop, 0.15, 0, crop)
+            cv2.line(crop, (0, bar_y), (cw, bar_y), (0, 215, 255), 1)
+            
+            meta_str = f"TMC MALAYBALAY | {db_timestamp} | SAYRE HWY - FORTICH ST. | {label.upper()} #{obj_id}"
+            cv2.putText(crop, meta_str, (12, bar_y + 23), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 230, 255), 1, cv2.LINE_AA)
+            return crop
+
     def _save_violation(self, frame, bbox, obj_id, label, elapsed, confidence=0.0):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         x1, y1, x2, y2 = bbox
         h, w, _ = frame.shape
-        pad = 50
-        cx1, cy1, cx2, cy2 = max(0, x1-pad), max(0, y1-pad), min(w, x2+pad), min(h, y2+pad)
-        cropped = frame[cy1:cy2, cx1:cx2].copy()
-        cv2.rectangle(cropped, (x1-cx1, y1-cy1), (x2-cx1, y2-cy1), (0, 0, 255), 2)
-        cv2.putText(cropped, "VIOLATION", (x1-cx1, y1-cy1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
         # Extract vehicle color with enhanced AI detector and temporal tracker
         vehicle_crop = frame[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
@@ -371,17 +502,6 @@ class MonitoringService:
             vehicle_crop, obj_id=obj_id, vehicle_type=label
         )
         conf_pct = int(color_conf * 100)
-        
-        # Overlay color on evidence screenshot in its calibrated BGR color (with high-contrast stroke)
-        color_bgr_map = getattr(self.color_detector, 'COLOR_BGR_MAP', {})
-        text_bgr = color_bgr_map.get(vehicle_color, (255, 255, 255))
-        outline_bgr = (255, 255, 255) if vehicle_color in ("Black", "Brown / Bronze") else (0, 0, 0)
-
-        # Draw crisp high-contrast outline first, then colored fill
-        text_pos = (x1-cx1, y2-cy1+40)
-        color_text = f"COLOR: {vehicle_color} ({conf_pct}%)"
-        cv2.putText(cropped, color_text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, outline_bgr, 4)
-        cv2.putText(cropped, color_text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_bgr, 2)
 
         # --- LPR: Read plate from evidentiary frame (with cached pre-capture fallback) ---
         plate_number = None
@@ -418,25 +538,37 @@ class MonitoringService:
             
             if plate_number:
                 logging.info(f"LPR confirmed plate: {plate_number} for vehicle ID {obj_id}")
-                cv2.putText(cropped, f"PLATE: {plate_number}",
-                            (x1-cx1, y2-cy1+20),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
             else:
                 plate_number = "UNREADABLE"
         else:
             plate_number = "LPR DISABLED"
         
+        db_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        location_name = "Sayre Highway - Fortich St., Malaybalay City"
+
+        # Generate High-Definition Evidence Snapshot (guarantees whole vehicle is visible + road context)
+        evidence_image = self._generate_evidence_image(
+            frame=frame,
+            bbox=bbox,
+            obj_id=obj_id,
+            label=label,
+            elapsed=elapsed,
+            vehicle_color=vehicle_color,
+            conf_pct=conf_pct,
+            plate_number=plate_number,
+            db_timestamp=db_timestamp,
+            location_name=location_name
+        )
+
         filename = f"violation_{timestamp}_{label}_{obj_id}.jpg"
         save_path = os.path.join("static", "violations", filename)
-        cv2.imwrite(save_path, cropped)
+        cv2.imwrite(save_path, evidence_image, [cv2.IMWRITE_JPEG_QUALITY, 90])
         
-        db_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         db_image_path = f"violations/{filename}"
-        location_name = "Sayre Highway - Fortich St., Malaybalay City"
         
         try:
             if hasattr(self.db, 'insert_violation'):
-                ret, buffer = cv2.imencode('.jpg', cropped)
+                ret, buffer = cv2.imencode('.jpg', evidence_image)
                 self.db.insert_violation(
                     vehicle_type=label, timestamp=db_timestamp, image_path=db_image_path,
                     image_blob=buffer.tobytes() if ret else None, detection_id=f"{timestamp}_{obj_id}",
@@ -650,7 +782,7 @@ class MonitoringService:
                             raw_persons.append((x1, y1, x2, y2, cx, cy, conf))
 
                     # Deduplicate overlapping vehicle detections (NMS & Containment)
-                    # Merges multi-class or partial bounding boxes of the same vehicle
+                    # Merges multi-class or partial bounding boxes so the ENTIRE vehicle is enclosed
                     if len(raw_vehicles) > 1:
                         raw_vehicles_sorted = sorted(raw_vehicles, key=lambda x: x[6], reverse=True)
                         deduped_vehicles = []
@@ -658,7 +790,7 @@ class MonitoringService:
                             box_a = [rv[0], rv[1], rv[2], rv[3]]
                             area_a = max(1.0, float((box_a[2] - box_a[0]) * (box_a[3] - box_a[1])))
                             is_dup = False
-                            for dk in deduped_vehicles:
+                            for idx_dk, dk in enumerate(deduped_vehicles):
                                 box_b = [dk[0], dk[1], dk[2], dk[3]]
                                 area_b = max(1.0, float((box_b[2] - box_b[0]) * (box_b[3] - box_b[1])))
                                 
@@ -674,6 +806,16 @@ class MonitoringService:
                                 
                                 if iou >= 0.20 or containment >= 0.38 or (center_inside and containment >= 0.25):
                                     is_dup = True
+                                    # Merge bounding boxes so the ENTIRE vehicle (cab + bed/roof) is enclosed
+                                    mx1 = min(box_a[0], box_b[0])
+                                    my1 = min(box_a[1], box_b[1])
+                                    mx2 = max(box_a[2], box_b[2])
+                                    my2 = max(box_a[3], box_b[3])
+                                    mcx, mcy = (mx1 + mx2) // 2, (my1 + my2) // 2
+                                    m_conf = max(rv[6], dk[6])
+                                    m_label = dk[7]
+                                    m_type = dk[8] if dk[8] not in ('car', 'vehicle') else rv[8]
+                                    deduped_vehicles[idx_dk] = (mx1, my1, mx2, my2, mcx, mcy, m_conf, m_label, m_type)
                                     break
                             if not is_dup:
                                 deduped_vehicles.append(rv)
