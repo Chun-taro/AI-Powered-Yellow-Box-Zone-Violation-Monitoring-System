@@ -88,10 +88,14 @@ class CentroidTracker:
         w = max(1.0, x2 - x1)
         h = max(1.0, y2 - y1)
 
-        # Ensure new arrivals on roadway have proper vertical proportion
-        if y2 > 220 and h < w * 0.95:
-            h = w * 0.95
-            y1 = y2 - h
+        # Ensure new arrivals on roadway have proper vertical 5-anchor proportion (0.92 * w <= h <= 1.25 * w)
+        if y2 > 220:
+            if h < w * 0.92:
+                h = w * 0.95
+                y1 = y2 - h
+            elif h > w * 1.25:
+                h = w * 1.22
+                y1 = y2 - h
             bbox = [int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2))]
             centroid = ((bbox[0] + bbox[2]) // 2, (bbox[1] + bbox[3]) // 2)
 
@@ -211,19 +215,19 @@ class CentroidTracker:
         dist_shift = math.hypot(dx, dy)
 
         # -------------------------------------------------------------
-        # Phase 1: Position Stabilization (Anti-Jitter Deadband & Adaptive Glide)
+        # Phase 1: Position & 5-Anchor Size Stabilization
         # -------------------------------------------------------------
+        # 5-Anchor physical constraints: height is tightly bounded between 0.88 * w and 1.26 * w
+        min_anchor_h = prev_w * 0.88
+        max_anchor_h = prev_w * 1.26
+
         if dist_shift < 9.0:
-            # Stationary / idling vehicle: lock position completely (0.0px jitter)
+            # Stationary / idling vehicle: lock position and size completely (0.0px jitter)
             st['still_count'] += 1
             smooth_cx = prev_cx
             smooth_ground_y = prev_ground_y
             smooth_w = prev_w
-            # Asymmetric Height Expansion: if taller detection arrives (uncovered roof), expand upward
-            if new_h > prev_h * 1.05:
-                smooth_h = max(prev_h, new_h)
-            else:
-                smooth_h = prev_h
+            smooth_h = float(np.clip(prev_h, min_anchor_h, max_anchor_h))
             smooth_ar = smooth_w / smooth_h
         elif dist_shift < 18.0:
             # Slow micro-movement / creeping: smooth damping
@@ -233,11 +237,8 @@ class CentroidTracker:
             smooth_ground_y = prev_ground_y + alpha_pos * dy
             clamped_w = float(np.clip(new_w, prev_w * 0.98, prev_w * 1.02))
             smooth_w = 0.08 * clamped_w + 0.92 * prev_w
-            # Peak height retention: never shrink vehicle height from partial occlusion
-            if new_h > prev_h:
-                smooth_h = max(prev_h, new_h)
-            else:
-                smooth_h = prev_h
+            target_h = float(np.clip(new_h, smooth_w * 0.90, smooth_w * 1.25))
+            smooth_h = float(np.clip(0.08 * target_h + 0.92 * prev_h, min_anchor_h, max_anchor_h))
             smooth_ar = smooth_w / smooth_h
         else:
             # Dynamic vehicular movement: responsive tracking glide
@@ -247,12 +248,8 @@ class CentroidTracker:
             smooth_ground_y = prev_ground_y + alpha_pos * dy
             clamped_w = float(np.clip(new_w, prev_w * 0.96, prev_w * 1.04))
             smooth_w = 0.12 * clamped_w + 0.88 * prev_w
-            if new_h > prev_h:
-                smooth_h = max(prev_h, new_h)
-            elif new_h >= prev_h * 0.85:
-                smooth_h = 0.15 * new_h + 0.85 * prev_h
-            else:
-                smooth_h = prev_h
+            target_h = float(np.clip(new_h, smooth_w * 0.90, smooth_w * 1.25))
+            smooth_h = float(np.clip(0.12 * target_h + 0.88 * prev_h, min_anchor_h, max_anchor_h))
             smooth_ar = smooth_w / smooth_h
 
         st['cx'] = smooth_cx
