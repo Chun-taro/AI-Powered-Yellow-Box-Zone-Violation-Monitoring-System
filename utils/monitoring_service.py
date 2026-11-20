@@ -135,13 +135,18 @@ class MonitoringService:
                 self.is_running = False
                 self.stop_event.set()
                 if self.thread:
-                    self.thread.join(timeout=1.0)
+                    self.thread.join(timeout=0.4)
                 if hasattr(self, 'ai_thread') and self.ai_thread:
-                    self.ai_thread.join(timeout=1.0)
+                    self.ai_thread.join(timeout=0.4)
                 
                 if self.camera:
                     self.camera.close()
                     self.camera = None
+                
+                try:
+                    self.lpr_executor.shutdown(wait=False, cancel_futures=True)
+                except Exception:
+                    pass
                 
                 logging.info("Monitoring thread stopped")
 

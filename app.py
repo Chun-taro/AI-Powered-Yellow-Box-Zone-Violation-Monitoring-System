@@ -1,6 +1,27 @@
 import warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='torch.nn.modules.rnn')
 
+import signal
+import sys
+import os
+
+def fast_shutdown(sig=None, frame=None):
+    """Ensure instant process termination on Ctrl+C without hanging on streaming sockets."""
+    print("\n[*] Stopping Yellow Box Monitoring System...", flush=True)
+    try:
+        from utils.monitoring_service import monitoring_service
+        monitoring_service.stop()
+    except Exception:
+        pass
+    os._exit(0)
+
+# Register signals immediately so Ctrl+C responds instantly even during imports or warm-up
+signal.signal(signal.SIGINT, fast_shutdown)
+if hasattr(signal, 'SIGTERM'):
+    signal.signal(signal.SIGTERM, fast_shutdown)
+if hasattr(signal, 'SIGBREAK'):
+    signal.signal(signal.SIGBREAK, fast_shutdown)
+
 print("[*] Starting AI-Powered Yellow Box Monitoring System...", flush=True)
 print("[*] Loading PyTorch, CUDA GPU drivers, and AI detection engines...", flush=True)
 
@@ -138,4 +159,7 @@ if __name__ == '__main__':
     # that manage their own event loops or resources (like a camera thread).
     # Disabling it prevents crashes on file changes during development.
     print(f"Starting Yellow Box Zone Monitoring System on http://{config.HOST}:{config.PORT}")
-    app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, use_reloader=False)
+    try:
+        app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, use_reloader=False)
+    except (KeyboardInterrupt, SystemExit):
+        fast_shutdown()

@@ -201,7 +201,7 @@ def generate_frames():
     Catches client disconnects cleanly to prevent thread accumulation when changing pages.
     """
     try:
-        while True:
+        while not monitoring_service.stop_event.is_set():
             frame_bytes = monitoring_service.get_frame()
             if frame_bytes:
                 yield (b'--frame\r\n'
