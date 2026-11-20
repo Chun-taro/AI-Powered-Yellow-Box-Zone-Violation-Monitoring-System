@@ -187,7 +187,7 @@ class MonitoringService:
             
             # Constants
             frame_skip = int(getattr(config, 'FRAME_SKIP', 2))
-            jpeg_quality = int(getattr(config, 'JPEG_QUALITY', 70))
+            jpeg_quality = int(getattr(config, 'JPEG_QUALITY', 65))
             time_limit = getattr(config, 'STOP_TIME_LIMIT', 15)
             save_dir = os.path.join("static", "violations")
             if not os.path.exists(save_dir):
@@ -314,8 +314,8 @@ class MonitoringService:
                 if res:
                     self.latest_frame = buffer.tobytes()
                 
-                # Maintain target FPS to match hardware capability (60 FPS)
-                target_delay = 1.0 / getattr(config, 'FPS', 60)
+                # Maintain target FPS to match hardware capability (30 FPS standard)
+                target_delay = 1.0 / getattr(config, 'FPS', 30)
                 elapsed_loop = time.time() - current_time
                 sleep_time = max(0.001, target_delay - elapsed_loop)
                 time.sleep(sleep_time) 
@@ -612,6 +612,13 @@ class MonitoringService:
                         ai_frames = 0
                         ai_last_time = current_time
 
+                    # Frame pacing: skip AI inference on alternate frames to cut CPU/GPU load by 50%
+                    # while maintaining real-time tracking fidelity
+                    ai_frame_skip = int(getattr(config, 'FRAME_SKIP', 2))
+                    if ai_frame_skip > 1 and (ai_frames % ai_frame_skip != 0):
+                        time.sleep(0.005)
+                        continue
+
                     h, w = frame.shape[:2]
 
                     # AI Inference (Full frame)
@@ -872,12 +879,12 @@ class MonitoringService:
                         # Active loading state: ONLY triggered if THIS vehicle was associated with an active boarding person
                         is_loading = (obj_id in active_loading_vehicles) or ((current_time - self.vehicle_loading_status.get(obj_id, 0)) < 1.0)
 
-                        # Continuous Early LPR Pre-Capture (Approach + Dwell):
-                        # Runs asynchronously on tracked vehicles in the right lane before and during zone dwell.
-                        # Captures plates early while vehicles approach and before occlusions occur.
-                        if getattr(config, 'LPR_ENABLED', True):
-                            has_validated_plate = self.cached_plate_validated.get(obj_id, False) and (self.cached_plate_scores.get(obj_id, 0.0) >= 2.2)
-                            lpr_sample_rate = 6 if obj_id in self.cached_plates else 3
+                        # Targeted LPR Pre-Capture (Zone-Focused & Rate-Paced):
+                        # Only runs asynchronously on vehicles dwelling or stopped in the yellow box zone,
+                        # completely eliminating wasted CPU/GPU OCR cycles on passing road traffic.
+                        if is_in_zone and getattr(config, 'LPR_ENABLED', True):
+                            has_validated_plate = self.cached_plate_validated.get(obj_id, False) and (self.cached_plate_scores.get(obj_id, 0.0) >= 2.0)
+                            lpr_sample_rate = 12 if obj_id in self.cached_plates else 6
                             if not has_validated_plate and obj_id not in self.pending_lpr_ids and (ai_frames % lpr_sample_rate == 0):
                                 try:
                                     plate_crop = crop_plate_region(frame, bbox)
