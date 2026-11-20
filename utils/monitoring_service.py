@@ -812,17 +812,20 @@ class MonitoringService:
                             raw_persons.append((x1, y1, x2, y2, cx, cy, conf))
 
                     # Deduplicate overlapping vehicle detections (NMS & Containment)
-                    # Merges multi-class or partial bounding boxes so the ENTIRE vehicle is enclosed
+                    # Merges multi-class, partial, or split bounding boxes (e.g., upper cabin + lower bed/tailgate)
+                    # so the ENTIRE vehicle is enclosed
                     if len(raw_vehicles) > 1:
                         raw_vehicles_sorted = sorted(raw_vehicles, key=lambda x: x[6], reverse=True)
                         deduped_vehicles = []
                         for rv in raw_vehicles_sorted:
                             box_a = [rv[0], rv[1], rv[2], rv[3]]
                             area_a = max(1.0, float((box_a[2] - box_a[0]) * (box_a[3] - box_a[1])))
+                            w_a = box_a[2] - box_a[0]
                             is_dup = False
                             for idx_dk, dk in enumerate(deduped_vehicles):
                                 box_b = [dk[0], dk[1], dk[2], dk[3]]
                                 area_b = max(1.0, float((box_b[2] - box_b[0]) * (box_b[3] - box_b[1])))
+                                w_b = box_b[2] - box_b[0]
                                 
                                 iou = compute_iou(box_a, box_b)
                                 inter_w = max(0.0, min(box_a[2], box_b[2]) - max(box_a[0], box_b[0]))
@@ -834,20 +837,21 @@ class MonitoringService:
                                 center_inside = (box_b[0] <= cx_a <= box_b[2] and box_b[1] <= cy_a <= box_b[3]) or \
                                                 (box_a[0] <= cx_b <= box_a[2] and box_a[1] <= cy_b <= box_a[3])
                                 
-                                if iou >= 0.20 or containment >= 0.38 or (center_inside and containment >= 0.25):
+                                # Vertical alignment check for split vehicle parts (cabin + bed/tailgate)
+                                is_vert_stack = False
+                                if inter_w >= 0.45 * min(w_a, w_b):
+                                    top_box = box_a if box_a[1] < box_b[1] else box_b
+                                    bot_box = box_b if box_a[1] < box_b[1] else box_a
+                                    v_gap = bot_box[1] - top_box[3]
+                                    if -25 <= v_gap <= max(85, int(0.45 * max(top_box[3]-top_box[1], bot_box[3]-bot_box[1]))):
+                                        is_vert_stack = True
+                                
+                                if iou >= 0.20 or containment >= 0.38 or (center_inside and containment >= 0.25) or is_vert_stack:
                                     is_dup = True
-                                    # Stable bounding box merge: only merge if aspect ratio and dimensions are consistent
-                                    cand_w = max(box_a[2], box_b[2]) - min(box_a[0], box_b[0])
-                                    cand_h = max(box_a[3], box_b[3]) - min(box_a[1], box_b[1])
-                                    base_w = box_b[2] - box_b[0]
-                                    base_h = box_b[3] - box_b[1]
-                                    if cand_w <= base_w * 1.35 and cand_h <= base_h * 1.35:
-                                        mx1 = min(box_a[0], box_b[0])
-                                        my1 = min(box_a[1], box_b[1])
-                                        mx2 = max(box_a[2], box_b[2])
-                                        my2 = max(box_a[3], box_b[3])
-                                    else:
-                                        mx1, my1, mx2, my2 = (box_a if area_a > area_b else box_b)
+                                    mx1 = min(box_a[0], box_b[0])
+                                    my1 = min(box_a[1], box_b[1])
+                                    mx2 = max(box_a[2], box_b[2])
+                                    my2 = max(box_a[3], box_b[3])
                                     mcx, mcy = (mx1 + mx2) // 2, (my1 + my2) // 2
                                     m_conf = max(rv[6], dk[6])
                                     m_label = dk[7]
@@ -858,7 +862,7 @@ class MonitoringService:
                                 deduped_vehicles.append(rv)
                         raw_vehicles = deduped_vehicles
 
-                    # 1. Process all detected vehicles
+                    # 1. Process all detected vehicles with Whole-Body Canopy Reconstruction
                     detections_for_tracker = []
                     bbox_to_label = {}
                     bbox_to_conf = {}
@@ -867,6 +871,33 @@ class MonitoringService:
 
                     for v in raw_vehicles:
                         vx1, vy1, vx2, vy2, vcx, vcy, vconf, vlabel, vtype = v
+                        vw = vx2 - vx1
+                        vh = vy2 - vy1
+
+                        # Canopy Reconstruction Phase 1: Passengers/Enforcers in Doorway/Cabin
+                        # Expand upward if passengers/enforcers are seated or standing inside the vehicle
+                        for pb in raw_persons:
+                            px1, py1, px2, py2, pcx, pcy, pconf = pb
+                            pw = px2 - px1
+                            inter_x = max(0, min(vx2, px2) - max(vx1, px1))
+                            if inter_x >= 0.38 * min(vw, pw) and py2 >= vy1 - 30 and py1 < vy2:
+                                vy1 = min(vy1, py1 - 15)
+                                vx1 = min(vx1, px1)
+                                vx2 = max(vx2, px2)
+                                vw = vx2 - vx1
+                                vh = vy2 - vy1
+
+                        # Canopy Reconstruction Phase 2: Road Perspective Proportional Recovery
+                        # On this monitored road corridor, multicabs, jeepneys, and utility vehicles
+                        # have a physical height >= 0.95 * width. Truncated tailgate detections
+                        # are restored to full vehicle dimensions.
+                        if vy2 > 220:
+                            min_h = int(vw * 0.95)
+                            if (vy2 - vy1) < min_h:
+                                vy1 = max(0, vy2 - min_h)
+                                vh = vy2 - vy1
+
+                        vcx, vcy = (vx1 + vx2) // 2, (vy1 + vy2) // 2
                         vehicle_boxes_all.append((vx1, vy1, vx2, vy2, vtype))
                         
                         is_in_zone = False
