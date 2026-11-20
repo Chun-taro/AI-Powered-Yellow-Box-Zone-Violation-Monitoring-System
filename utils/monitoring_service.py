@@ -248,8 +248,7 @@ class MonitoringService:
                                      cv2.pointPolygonTest(self.yellow_zone, test_pt2, False) >= 0 or \
                                      cv2.pointPolygonTest(self.yellow_zone, test_pt3, False) >= 0
                     
-                    vtype = self.vehicle_types.get(obj_id, 'Vehicle')
-                    vlabel = f"{vtype.capitalize()} #{obj_id}"
+                    vlabel = f"Vehicle #{obj_id}"
 
                     if is_in_zone:
                         color = (0, 165, 255) # Orange
@@ -857,7 +856,7 @@ class MonitoringService:
                                     self.violated_ids.add(obj_id)
                                     self._save_violation(
                                         frame, bbox, obj_id, 
-                                        self.vehicle_types.get(obj_id, 'car'), 
+                                        'vehicle', 
                                         elapsed,
                                         confidence=self.vehicle_confidences.get(obj_id, 0.0)
                                     )
